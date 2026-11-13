@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -7,8 +8,8 @@
 <title>RADIO LINK</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;padding:16px;background:#0b1020;color:#edf3ff;font-family:Arial,sans-serif}
-.app{max-width:850px;margin:auto}
+body{margin:0;padding:14px;background:#0b1020;color:#edf3ff;font-family:Arial,sans-serif}
+.app{max-width:900px;margin:auto}
 header{text-align:center;padding:12px}
 h1{color:#54e6c1;letter-spacing:4px}
 .panel{background:#151e32;border:1px solid #293854;border-radius:15px;padding:16px;margin:14px 0}
@@ -21,7 +22,7 @@ button:disabled{opacity:.45}
 .row button{flex:1}
 #status{color:#ffca68;overflow-wrap:anywhere}
 #users{line-height:2}
-#messages{height:220px;overflow:auto;background:#0b1425;padding:10px;border-radius:9px;margin:10px 0}
+#messages{height:190px;overflow:auto;background:#0b1425;padding:10px;border-radius:9px;margin:10px 0}
 .msg{padding:8px;border-bottom:1px solid #26344c;overflow-wrap:anywhere}
 .small{color:#9aabc6;font-size:13px;line-height:1.5}
 video{width:100%;background:#05080e;border-radius:10px;min-height:100px}
@@ -29,7 +30,7 @@ video{width:100%;background:#05080e;border-radius:10px;min-height:100px}
 .videoBox{background:#0b1425;padding:8px;border-radius:10px;min-width:0}
 .videoBox p{margin:5px;font-size:13px}
 #ptt{width:100%;height:75px;font-size:20px;background:#e34d65;color:white;touch-action:none;user-select:none}
-.hidden{display:none!important}
+.metric{font-size:25px;font-weight:bold;color:#54e6c1}
 body.old{background:#171717;color:#eee}
 body.old .panel{background:#252525;border-color:#555;border-radius:4px}
 body.old h1{color:#fff}
@@ -46,7 +47,7 @@ body.old button{border-radius:3px}
 
 <section class="panel">
 <h3>Bağlantı ve oda</h3>
-<input id="server" value="https://radio-link.cesurtavuk1905.workers.dev" placeholder="Sunucu adresi">
+<input id="server" value="https://radio-link.cesurtavuk1905.workers.dev">
 <input id="username" maxlength="24" placeholder="Kullanıcı adın">
 <input id="room" maxlength="10" placeholder="Oda kodu">
 <div class="row">
@@ -55,6 +56,21 @@ body.old button{border-radius:3px}
 <button class="danger" onclick="disconnect()">AYRIL</button>
 </div>
 <p id="status">● Bağlantı bekleniyor</p>
+</section>
+
+<section class="panel">
+<h3>Bağlantı kalitesi</h3>
+<div class="row">
+<div style="flex:1">
+<div class="small">WebRTC gecikmesi</div>
+<div class="metric" id="ping">-- ms</div>
+</div>
+<div style="flex:1">
+<div class="small">Bağlı kullanıcı</div>
+<div class="metric" id="peerCount">0</div>
+</div>
+</div>
+<p class="small" id="quality">Bağlantı ölçümü bekleniyor.</p>
 </section>
 
 <section class="panel">
@@ -72,17 +88,13 @@ body.old button{border-radius:3px}
 </section>
 
 <section class="panel">
-<h3>Sesli iletişim / Bas-konuş</h3>
-<div class="row">
-<button onclick="startMic()">MİKROFONU AÇ</button>
-<button class="secondary" onclick="stopMic()">MİKROFONU KAPAT</button>
-</div>
+<h3>Bas-konuş (PTT)</h3>
 <button id="ptt">BASILI TUT – KONUŞ</button>
-<p class="small">Konuşmak için düğmeye basılı tut. Mikrofon izni vermen gerekir.</p>
+<p class="small">İlk basışta mikrofon izni istenir. Mikrofonu ayrıca açmana gerek yok.</p>
 </section>
 
 <section class="panel">
-<h3>Görüntülü iletişim</h3>
+<h3>Kamera ve görüntülü iletişim</h3>
 <div class="row">
 <button onclick="startCamera()">KAMERAYI AÇ</button>
 <button class="secondary" onclick="stopCamera()">KAMERAYI KAPAT</button>
@@ -93,28 +105,50 @@ body.old button{border-radius:3px}
 <video id="localVideo" autoplay muted playsinline></video>
 </div>
 </div>
-<p class="small">Görüşme için diğer kullanıcıların da aynı odaya bağlanması gerekir.</p>
 </section>
 
-<p class="small">Not: Görüntülü ve sesli bağlantı WebRTC kullanır. Bazı mobil ağlarda bağlantı için TURN sunucusu gerekebilir.</p>
+<section class="panel">
+<h3>Mirror – Ekran yansıtma</h3>
+<div class="row">
+<button onclick="startMirror()">EKRANIMI YANSIT</button>
+<button class="danger" onclick="stopMirror()">YANSITMAYI DURDUR</button>
+</div>
+<p class="small">
+Ekranını odadaki diğer kişilere canlı aktarır. Tarayıcı ve cihaz ekran paylaşımını desteklemelidir.
+Android Chrome'da bu özellik cihaz sürümüne göre çalışmayabilir.
+</p>
+</section>
+
+<section class="panel">
+<h3>Dosya aktarımı</h3>
+<p class="small">
+2,5 GB'a kadar dosya aktarımı için R2 tabanlı parçalı aktarım modülü sonraki kurulum adımında eklenecek.
+</p>
+</section>
+
+<p class="small">
+Ses, kamera ve ekran paylaşımı WebRTC kullanır. Ping değeri bağlı eş cihazla ölçülen yaklaşık gidiş-dönüş gecikmesidir.
+Bazı ağlarda TURN sunucusu gerekebilir.
+</p>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-let socket = null;
-let myId = null;
-let users = {};
-let peers = {};
-let localStream = null;
-let cameraStream = null;
-let makingOffer = {};
-let ignoreOffer = {};
-let reconnecting = false;
+
+let socket=null;
+let myId=null;
+let users={};
+let peers={};
+let localStream=null;
+let cameraStream=null;
+let screenStream=null;
+let pttWanted=false;
+let pingTimer=null;
 
 function status(t){$("status").textContent="● "+t}
-function serverURL(){
- return $("server").value.trim().replace(/\/+$/,"");
-}
+function serverURL(){return $("server").value.trim().replace(/\/+$/,"")}
+function toggleDesign(){document.body.classList.toggle("old")}
+
 function addMessage(name,text){
  const d=document.createElement("div");
  d.className="msg";
@@ -122,9 +156,11 @@ function addMessage(name,text){
  $("messages").appendChild(d);
  $("messages").scrollTop=$("messages").scrollHeight;
 }
+
 function renderUsers(){
  $("users").replaceChildren();
  const list=Object.values(users);
+ $("peerCount").textContent=list.length;
  if(!list.length){$("users").textContent="Henüz başka kullanıcı yok.";return}
  list.forEach(u=>{
   const d=document.createElement("div");
@@ -132,13 +168,14 @@ function renderUsers(){
   $("users").appendChild(d);
  });
 }
-function toggleDesign(){document.body.classList.toggle("old")}
+
 function validInputs(){
  if(!$("username").value.trim()){alert("Kullanıcı adını yaz.");return false}
  if(!$("room").value.trim()){alert("Oda kodunu yaz.");return false}
- if(!serverURL().startsWith("https://")){alert("HTTPS sunucu adresi gerekli.");return false}
+ if(!serverURL().startsWith("https://")){alert("HTTPS adresi gerekli.");return false}
  return true;
 }
+
 async function createRoom(){
  try{
   const r=await fetch(serverURL()+"/api/create",{method:"POST"});
@@ -150,18 +187,27 @@ async function createRoom(){
   connect();
  }catch(e){alert("Oda oluşturulamadı: "+e.message)}
 }
+
 function connect(){
  if(!validInputs())return;
  if(socket)disconnect(false);
+
  const room=$("room").value.trim().toUpperCase();
  const name=$("username").value.trim().slice(0,24);
  const wsURL=serverURL().replace(/^https:/,"wss:").replace(/^http:/,"ws:")
   +"/api/room/"+encodeURIComponent(room)+"?name="+encodeURIComponent(name);
+
  status("Sunucuya bağlanılıyor...");
  try{
   const ws=new WebSocket(wsURL);
   socket=ws;
-  ws.onopen=()=>{if(socket===ws){status("Odaya bağlandı: "+room);addMessage("Sistem","Bağlantı kuruldu.")}};
+  ws.onopen=()=>{
+   if(socket===ws){
+    status("Odaya bağlandı: "+room);
+    addMessage("Sistem","Bağlantı kuruldu.");
+    startPingMonitor();
+   }
+  };
   ws.onmessage=e=>{
    let d;try{d=JSON.parse(e.data)}catch{return}
    if(socket===ws)handleMessage(d);
@@ -169,16 +215,23 @@ function connect(){
   ws.onerror=()=>{if(socket===ws)status("Bağlantı hatası")};
   ws.onclose=()=>{
    if(socket===ws){
-    socket=null;cleanupPeers();users={};myId=null;renderUsers();
+    socket=null;
+    cleanupPeers();
+    users={};myId=null;renderUsers();
+    stopPingMonitor();
     status("Bağlantı kapandı");
    }
   };
  }catch(e){status("Bağlantı kurulamadı")}
 }
+
 function send(data){
- if(socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify(data));
+ if(socket&&socket.readyState===WebSocket.OPEN)
+  socket.send(JSON.stringify(data));
 }
-function sendSignal(id,signal){send({type:"signal",target:id,signal})}
+function sendSignal(id,signal){
+ send({type:"signal",target:id,signal});
+}
 
 function handleMessage(d){
  if(d.type==="welcome"){
@@ -191,7 +244,8 @@ function handleMessage(d){
  }
  if(d.type==="peer-joined"){
   users[d.id]={id:d.id,name:d.name||"Misafir"};
-  renderUsers();addMessage("Sistem",(d.name||"Bir kullanıcı")+" katıldı.");
+  renderUsers();
+  addMessage("Sistem",(d.name||"Bir kullanıcı")+" katıldı.");
   createPeer(d.id,false);
  }
  if(d.type==="peer-left"){
@@ -202,139 +256,275 @@ function handleMessage(d){
  if(d.type==="chat")addMessage(d.name||"Kullanıcı",d.text||"");
  if(d.type==="signal")receiveSignal(d.from,d.signal);
 }
+
 function createPeer(id,initiator){
  if(peers[id])return peers[id];
+
  const pc=new RTCPeerConnection({
   iceServers:[
-   {urls:"stun:stun.l.google.com:19302"},
-   {urls:"stun:stun.cloudflare.com:3478"}
-  ]
+   {urls:"stun:stun.cloudflare.com:3478"},
+   {urls:"stun:stun.l.google.com:19302"}
+  ],
+  iceCandidatePoolSize:10,
+  bundlePolicy:"max-bundle",
+  rtcpMuxPolicy:"require"
  });
+
  peers[id]=pc;
- makingOffer[id]=false;ignoreOffer[id]=false;
 
  if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
  if(cameraStream)cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream));
+ if(screenStream)screenStream.getTracks().forEach(t=>pc.addTrack(t,screenStream));
 
  pc.onicecandidate=e=>{
   if(e.candidate)sendSignal(id,{candidate:e.candidate});
  };
+
  pc.ontrack=e=>{
   let box=$("remote-"+id);
   if(!box){
-   box=document.createElement("div");box.className="videoBox";box.id="remote-"+id;
+   box=document.createElement("div");
+   box.className="videoBox";
+   box.id="remote-"+id;
+
    const p=document.createElement("p");
    p.textContent=users[id]?.name||"Uzak kullanıcı";
-   const v=document.createElement("video");v.autoplay=true;v.playsInline=true;v.id="video-"+id;
-   box.append(p,v);$("videos").appendChild(box);
+
+   const v=document.createElement("video");
+   v.autoplay=true;v.playsInline=true;v.id="video-"+id;
+
+   box.append(p,v);
+   $("videos").appendChild(box);
   }
   const v=$("video-"+id);
   if(v&&e.streams[0])v.srcObject=e.streams[0];
  };
+
  pc.onnegotiationneeded=async()=>{
   try{
-   makingOffer[id]=true;
    await pc.setLocalDescription();
    sendSignal(id,{description:pc.localDescription});
-  }catch(e){console.warn(e)}
-  finally{makingOffer[id]=false}
+  }catch(e){console.warn("Teklif hatası",e)}
  };
+
  pc.onconnectionstatechange=()=>{
-  if(pc.connectionState==="failed")status("Bağlantı başarısız; TURN gerekebilir.");
+  if(pc.connectionState==="failed")
+   status("P2P bağlantısı başarısız; TURN gerekebilir.");
  };
+
  return pc;
 }
+
 async function receiveSignal(id,s){
  if(!id||!s)return;
  const pc=peers[id]||createPeer(id,false);
  try{
   if(s.description){
-   const desc=s.description;
-   const ready=!makingOffer[id]&&(pc.signalingState==="stable"||pc.signalingState==="have-local-offer");
-   const offerCollision=desc.type==="offer"&&!ready;
-   ignoreOffer[id]=offerCollision;
-   if(offerCollision)return;
-   await pc.setRemoteDescription(desc);
-   if(desc.type==="offer"){
+   await pc.setRemoteDescription(s.description);
+   if(s.description.type==="offer"){
     await pc.setLocalDescription();
     sendSignal(id,{description:pc.localDescription});
    }
   }else if(s.candidate){
-   try{await pc.addIceCandidate(s.candidate)}catch(e){if(!ignoreOffer[id])throw e}
+   await pc.addIceCandidate(s.candidate);
   }
  }catch(e){console.warn("Sinyal hatası",e)}
 }
+
 function closePeer(id){
  if(peers[id]){peers[id].close();delete peers[id]}
- delete makingOffer[id];delete ignoreOffer[id];
  const box=$("remote-"+id);if(box)box.remove();
 }
 function cleanupPeers(){
  Object.keys(peers).forEach(closePeer);
 }
 function disconnect(show=true){
+ stopPingMonitor();
  if(socket){const s=socket;socket=null;s.close()}
- cleanupPeers();users={};myId=null;renderUsers();
+ cleanupPeers();
+ users={};myId=null;renderUsers();
  if(show)status("Bağlantı kesildi");
 }
+
 function sendMessage(){
  const t=$("message").value.trim();
  if(!t)return;
- if(!socket||socket.readyState!==WebSocket.OPEN){alert("Önce odaya bağlan.");return}
- send({type:"chat",text:t});$("message").value="";
+ if(!socket||socket.readyState!==WebSocket.OPEN){
+  alert("Önce odaya bağlan.");return;
+ }
+ send({type:"chat",text:t});
+ $("message").value="";
 }
-$("message").addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage()});
+$("message").addEventListener("keydown",e=>{
+ if(e.key==="Enter")sendMessage();
+});
 
-async function startMic(){
+/* PTT: ilk basışta mikrofon izni alır */
+async function pttDown(e){
+ e.preventDefault();
+ pttWanted=true;
+ $("ptt").textContent="MİKROFON AÇILIYOR...";
  try{
-  if(localStream)return;
-  localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-  localStream.getAudioTracks().forEach(t=>t.enabled=false);
-  Object.entries(peers).forEach(([id,pc])=>{
-   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-  });
-  status("Mikrofon hazır – bas-konuş kullanabilirsin");
- }catch(e){alert("Mikrofon açılamadı. Site izinlerini kontrol et.")}
-}
-function stopMic(){
- if(localStream){
-  localStream.getTracks().forEach(t=>t.stop());localStream=null;
-  Object.values(peers).forEach(pc=>pc.getSenders().forEach(s=>{
-   if(s.track&&s.track.kind==="audio")pc.removeTrack(s);
-  }));
-  status("Mikrofon kapatıldı");
+  if(!localStream){
+   localStream=await navigator.mediaDevices.getUserMedia({
+    audio:{
+     echoCancellation:true,
+     noiseSuppression:true,
+     autoGainControl:true
+    }
+   });
+   localStream.getAudioTracks().forEach(t=>t.enabled=false);
+   Object.values(peers).forEach(pc=>{
+    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+   });
+  }
+  localStream.getAudioTracks().forEach(t=>t.enabled=pttWanted);
+  $("ptt").textContent=pttWanted?"KONUŞUYORSUN...":"BASILI TUT – KONUŞ";
+ }catch(err){
+  pttWanted=false;
+  $("ptt").textContent="BASILI TUT – KONUŞ";
+  alert("Mikrofon izni gerekli. Site izinlerini kontrol et.");
  }
 }
-function ptt(active){
- if(!localStream)return;
- localStream.getAudioTracks().forEach(t=>t.enabled=active);
- $("ptt").textContent=active?"KONUŞUYORSUN...":"BASILI TUT – KONUŞ";
+function pttUp(){
+ pttWanted=false;
+ if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);
+ $("ptt").textContent="BASILI TUT – KONUŞ";
 }
-$("ptt").addEventListener("pointerdown",e=>{e.preventDefault();ptt(true)});
-["pointerup","pointerleave","pointercancel"].forEach(ev=>$("ptt").addEventListener(ev,()=>ptt(false)));
+$("ptt").addEventListener("pointerdown",pttDown);
+["pointerup","pointerleave","pointercancel"].forEach(ev=>{
+ $("ptt").addEventListener(ev,pttUp);
+});
 
 async function startCamera(){
  try{
   if(cameraStream)return;
-  cameraStream=await navigator.mediaDevices.getUserMedia({video:true});
+  cameraStream=await navigator.mediaDevices.getUserMedia({
+   video:{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}}
+  });
   $("localVideo").srcObject=cameraStream;
-  Object.values(peers).forEach(pc=>cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream)));
+  Object.values(peers).forEach(pc=>{
+   cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream));
+  });
   status("Kamera açık");
  }catch(e){alert("Kamera açılamadı. Site izinlerini kontrol et.")}
 }
 function stopCamera(){
  if(!cameraStream)return;
- cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;
+ cameraStream.getTracks().forEach(t=>t.stop());
+ cameraStream=null;
  $("localVideo").srcObject=null;
- Object.values(peers).forEach(pc=>pc.getSenders().forEach(s=>{
-  if(s.track&&s.track.kind==="video")pc.removeTrack(s);
- }));
+ Object.values(peers).forEach(pc=>{
+  pc.getSenders().forEach(s=>{
+   if(s.track&&s.track.kind==="video"&&s.track!==screenStream?.getVideoTracks()[0])
+    pc.removeTrack(s);
+  });
+ });
  status("Kamera kapatıldı");
 }
+
+/* MIRROR – ekran paylaşımı */
+async function startMirror(){
+ if(!navigator.mediaDevices?.getDisplayMedia){
+  alert("Bu tarayıcı ekran paylaşımını desteklemiyor. Masaüstü Chrome deneyebilirsin.");
+  return;
+ }
+ try{
+  screenStream=await navigator.mediaDevices.getDisplayMedia({
+   video:{frameRate:{ideal:15,max:24}},
+   audio:false
+  });
+  const track=screenStream.getVideoTracks()[0];
+  track.contentHint="detail";
+
+  Object.values(peers).forEach(pc=>{
+   pc.addTrack(track,screenStream);
+  });
+
+  track.onended=()=>stopMirror();
+  status("Ekran yansıtılıyor");
+  addMessage("Sistem","Ekran yansıtma başladı.");
+ }catch(e){
+  screenStream=null;
+  if(e.name!=="NotAllowedError")
+   alert("Ekran yansıtma başlatılamadı: "+e.message);
+ }
+}
+function stopMirror(){
+ if(!screenStream)return;
+ screenStream.getTracks().forEach(t=>t.stop());
+ screenStream=null;
+
+ Object.values(peers).forEach(pc=>{
+  pc.getSenders().forEach(s=>{
+   if(s.track&&s.track.kind==="video"&&
+      s.track!==cameraStream?.getVideoTracks()[0]){
+    pc.removeTrack(s);
+   }
+  });
+ });
+ status("Ekran yansıtma durduruldu");
+}
+
+/* Gecikme ölçümü ve görüntü bitrate ayarı */
+async function updatePing(){
+ let values=[];
+ for(const pc of Object.values(peers)){
+  if(pc.connectionState!=="connected")continue;
+  try{
+   const stats=await pc.getStats();
+   stats.forEach(s=>{
+    if(s.type==="candidate-pair"&&s.state==="succeeded"&&
+       s.nominated&&s.currentRoundTripTime!=null){
+     values.push(s.currentRoundTripTime*1000);
+    }
+   });
+
+   const videoSender=pc.getSenders().find(s=>
+    s.track&&s.track.kind==="video"
+   );
+   if(videoSender){
+    const p=videoSender.getParameters();
+    if(!p.encodings||!p.encodings.length)p.encodings=[{}];
+
+    const rtt=values.length?Math.max(...values):0;
+    let rate=1200000;
+    if(rtt>250)rate=300000;
+    else if(rtt>120)rate=600000;
+
+    p.encodings[0].maxBitrate=rate;
+    await videoSender.setParameters(p).catch(()=>{});
+   }
+  }catch(e){}
+ }
+
+ if(values.length){
+  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+  $("ping").textContent=Math.round(avg)+" ms";
+  $("quality").textContent=
+   avg<100?"İyi bağlantı":avg<200?"Orta bağlantı – kalite ayarlandı":
+   "Yüksek gecikme – görüntü kalitesi düşürüldü";
+ }else{
+  $("ping").textContent="-- ms";
+  $("quality").textContent="Henüz ölçülebilir P2P bağlantısı yok.";
+ }
+}
+function startPingMonitor(){
+ stopPingMonitor();
+ updatePing();
+ pingTimer=setInterval(updatePing,3000);
+}
+function stopPingMonitor(){
+ if(pingTimer){clearInterval(pingTimer);pingTimer=null}
+ $("ping").textContent="-- ms";
+ $("quality").textContent="Bağlantı ölçümü bekleniyor.";
+}
+
 window.addEventListener("beforeunload",()=>{
  if(socket)socket.close();
  if(localStream)localStream.getTracks().forEach(t=>t.stop());
  if(cameraStream)cameraStream.getTracks().forEach(t=>t.stop());
+ if(screenStream)screenStream.getTracks().forEach(t=>t.stop());
 });
 </script>
 </body>
