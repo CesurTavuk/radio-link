@@ -1,197 +1,379 @@
+const MAX_FILE_SIZE = 2.5 * 1024 * 1024 * 1024;
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" }
+  });
+}
+
+function validRoom(room) {
+  return typeof room === "string" &&
+    /^[A-Z0-9]{4,12}$/.test(room);
+}
+
+function safeFilename(name) {
+  return String(name || "dosya").replace(/[\\/\r\n"]/g, "_").slice(0, 180);
+}
+
 export default {
- async fetch(request,env){
-  const url=new URL(request.url);
-  const path=url.pathname;
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-  if(path==="/api/health"){
-   return Response.json({ok:true,app:"RADIO LINK"});
-  }
+    try {
+      if (path === "/api/health") {
+        return json({
+          ok: true,
+          app: "RADIO LINK",
+          version: "3.0"
+        });
+      }
 
-  if(path==="/api/create"&&request.method==="POST"){
-   const code=Math.random().toString(36).substring(2,8).toUpperCase();
-   return Response.json({code});
-  }
+      if (path === "/api/create" && request.method === "POST") {
+        const code = crypto.randomUUID()
+          .replace(/-/g, "")
+          .slice(0, 6)
+          .toUpperCase();
 
-  if(path.startsWith("/api/room/")){
-   const code=path.split("/").pop();
-   const id=env.ROOMS.idFromName(code);
-   const room=env.ROOMS.get(id);
-   return room.fetch(request);
-  }
+        return json({ ok: true, code });
+      }
 
-  if(path==="/api/files/start"&&request.method==="POST"){
-   if(!env.FILES)return new Response("R2 binding FILES eksik",{status:500});
+      if (path.startsWith("/api/room/")) {
+        const code = path.split("/").pop().toUpperCase();
 
-   const data=await request.json();
-   if(!data.room||!data.name||data.size>2.5*1024*1024*1024){
-    return new Response("Geçersiz dosya",{status:400});
-   }
+        if (!validRoom(code)) {
+          return json({ error: "Geçersiz oda kodu" }, 400);
+        }
 
-   const key=`${data.room}/${crypto.randomUUID()}-${data.name}`;
-   const upload=await env.FILES.createMultipartUpload(key,{
-    httpMetadata:{contentType:data.type||"application/octet-stream"},
-    customMetadata:{room:data.room,name:data.name}
-   });
+        if (request.headers.get("Upgrade") !== "websocket") {
+          return json({ error: "WebSocket bağlantısı gerekli" }, 426);
+        }
 
-   return Response.json({id:upload.uploadId,key});
-  }
+        const id = env.ROOMS.idFromName(code);
+        const room = env.ROOMS.get(id);
+        return room.fetch(request);
+      }
 
-  if(path.startsWith("/api/files/part/")&&request.method==="PUT"){
-   const parts=path.split("/");
-   const uploadId=parts[4];
-   const partNumber=Number(parts[5]);
-   const room=url.searchParams.get("room");
+      if (!env.FILES) {
+        return json({ error: "Cloudflare R2 FILES bağlantısı yapılandırılmamış" }, 500);
+      }
 
-   const body=await request.arrayBuffer();
-   const keyPrefix=`${room}/`;
+      /* Multipart yüklemeyi başlat */
 
-   const listed=await env.FILES.list({prefix:keyPrefix});
-   const object=listed.objects.find(o=>o.key.includes(uploadId));
+      if (path === "/api/files/start" && request.method === "POST") {
+        const data = await request.json();
 
-   if(!object){
-    return new Response("Upload bulunamadı",{status:404});
-   }
+        const room = String(data.room || "").toUpperCase();
+        const name = safeFilename(data.name);
+        const size = Number(data.size);
+        const type = String(data.type || "application/octet-stream");
 
-   const upload=env.FILES.resumeMultipartUpload(object.key,uploadId);
-   const result=await upload.uploadPart(partNumber,body);
+        if (!validRoom(room)) {
+          return json({ error: "Geçersiz oda kodu" }, 400);
+        }
 
-   return Response.json({ok:true,partNumber,etag:result.etag});
-  }
+        if (!Number.isFinite(size) || size <= 0 || size > MAX_FILE_SIZE) {
+          return json({ error: "Dosya boyutu 0 ile 2.5 GiB arasında olmalı" }, 400);
+        }
 
-  if(path.startsWith("/api/files/finish/")&&request.method==="POST"){
-   const uploadId=path.split("/").pop();
-   const data=await request.json();
-   const listed=await env.FILES.list({prefix:`${data.room}/`});
-   const object=listed.objects.find(o=>o.key.includes(uploadId));
+        const key = `${room}/${crypto.randomUUID()}`;
 
-   if(!object)return new Response("Dosya bulunamadı",{status:404});
+        const upload = await env.FILES.createMultipartUpload(key, {
+          httpMetadata: {
+            contentType: type
+          },
+          customMetadata: {
+            room,
+            name,
+            size: String(size)
+          }
+        });
 
-   const upload=env.FILES.resumeMultipartUpload(object.key,uploadId);
+        return json({
+          ok: true,
+          key,
+          uploadId: upload.uploadId
+        });
+      }
 
-   return new Response("Multipart tamamlamak için parça ETag listesi gerekir.",{
-    status:501
-   });
-  }
+      /* Tek bir dosya parçasını yükle */
 
-  if(path==="/api/files"){
-   const room=url.searchParams.get("room");
-   const listed=await env.FILES.list({prefix:`${room}/`});
-   return Response.json({
-    files:listed.objects.map(o=>({
-     id:o.key,
-     name:o.key.split("/").pop(),
-     size:o.size
-    }))
-   });
-  }
+      if (path === "/api/files/part" && request.method === "PUT") {
+        const room = String(url.searchParams.get("room") || "").toUpperCase();
+        const key = url.searchParams.get("key");
+        const uploadId = url.searchParams.get("uploadId");
+        const partNumber = Number(url.searchParams.get("partNumber"));
 
-  if(path.startsWith("/api/files/download/")){
-   const key=decodeURIComponent(path.split("/api/files/download/")[1]);
-   const room=url.searchParams.get("room");
+        if (!validRoom(room) || !key || !key.startsWith(room + "/")) {
+          return json({ error: "Dosya erişimi reddedildi" }, 403);
+        }
 
-   if(!key.startsWith(room+"/")){
-    return new Response("Erişim reddedildi",{status:403});
-   }
+        if (!uploadId || !Number.isInteger(partNumber) ||
+            partNumber < 1 || partNumber > 10000) {
+          return json({ error: "Geçersiz parça bilgisi" }, 400);
+        }
 
-   const object=await env.FILES.get(key);
-   if(!object)return new Response("Dosya bulunamadı",{status:404});
+        const body = await request.arrayBuffer();
 
-   return new Response(object.body,{
-    headers:{
-     "Content-Type":object.httpMetadata?.contentType||"application/octet-stream",
-     "Content-Disposition":`attachment; filename="${key.split("/").pop()}"`
+        if (body.byteLength === 0 || body.byteLength > 10 * 1024 * 1024) {
+          return json({ error: "Parça boyutu geçersiz" }, 400);
+        }
+
+        const upload = env.FILES.resumeMultipartUpload(key, uploadId);
+        const result = await upload.uploadPart(partNumber, body);
+
+        return json({
+          ok: true,
+          partNumber,
+          etag: result.etag
+        });
+      }
+
+      /* Parçaları birleştirip dosyayı tamamla */
+
+      if (path === "/api/files/finish" && request.method === "POST") {
+        const data = await request.json();
+
+        const room = String(data.room || "").toUpperCase();
+        const key = String(data.key || "");
+        const uploadId = String(data.uploadId || "");
+        const parts = data.parts;
+
+        if (!validRoom(room) || !key.startsWith(room + "/")) {
+          return json({ error: "Dosya erişimi reddedildi" }, 403);
+        }
+
+        if (!uploadId || !Array.isArray(parts) || parts.length < 1) {
+          return json({ error: "Eksik parça bilgisi" }, 400);
+        }
+
+        if (parts.length > 300) {
+          return json({ error: "Parça sayısı sınırı aşıldı" }, 400);
+        }
+
+        const cleanParts = parts.map(part => ({
+          partNumber: Number(part.partNumber),
+          etag: String(part.etag || "")
+        }));
+
+        cleanParts.sort((a, b) => a.partNumber - b.partNumber);
+
+        for (let i = 0; i < cleanParts.length; i++) {
+          if (
+            cleanParts[i].partNumber !== i + 1 ||
+            !cleanParts[i].etag
+          ) {
+            return json({ error: "Parça listesi geçersiz" }, 400);
+          }
+        }
+
+        const upload = env.FILES.resumeMultipartUpload(key, uploadId);
+        const object = await upload.complete(cleanParts);
+
+        return json({
+          ok: true,
+          key: object.key,
+          size: object.size
+        });
+      }
+
+      /* Odaya ait dosyaları listele */
+
+      if (path === "/api/files" && request.method === "GET") {
+        const room = String(url.searchParams.get("room") || "").toUpperCase();
+
+        if (!validRoom(room)) {
+          return json({ error: "Geçersiz oda kodu" }, 400);
+        }
+
+        const listed = await env.FILES.list({
+          prefix: room + "/",
+          include: ["customMetadata", "httpMetadata"],
+          limit: 1000
+        });
+
+        const files = listed.objects.map(object => ({
+          id: object.key,
+          name: object.customMetadata?.name || object.key.split("/").pop(),
+          size: object.size,
+          uploaded: object.uploaded
+        }));
+
+        return json({ ok: true, files });
+      }
+
+      /* Dosyayı indir */
+
+      if (path === "/api/files/download" && request.method === "GET") {
+        const room = String(url.searchParams.get("room") || "").toUpperCase();
+        const key = url.searchParams.get("key");
+
+        if (!validRoom(room) || !key || !key.startsWith(room + "/")) {
+          return json({ error: "Dosya erişimi reddedildi" }, 403);
+        }
+
+        const object = await env.FILES.get(key);
+
+        if (!object || object.customMetadata?.room !== room) {
+          return json({ error: "Dosya bulunamadı" }, 404);
+        }
+
+        const filename = safeFilename(object.customMetadata?.name || "dosya");
+
+        return new Response(object.body, {
+          headers: {
+            "Content-Type": object.httpMetadata?.contentType ||
+              "application/octet-stream",
+            "Content-Length": String(object.size),
+            "Content-Disposition":
+              `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+            "Cache-Control": "private, max-age=0"
+          }
+        });
+      }
+
+      return env.ASSETS.fetch(request);
+
+    } catch (error) {
+      return json({
+        error: error?.message || "Sunucu hatası"
+      }, 500);
     }
-   });
   }
-
-  return env.ASSETS.fetch(request);
- }
 };
 
+
+/* RADIO LINK oda sunucusu */
+
 export class RadioRoom {
- constructor(state,env){
-  this.state=state;
-  this.env=env;
-  this.sessions=new Map();
- }
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.sessions = new Map();
+  }
 
- async fetch(request){
-  const url=new URL(request.url);
-  if(url.pathname.endsWith("/room")||url.pathname.includes("/api/room/")){
-   if(request.headers.get("Upgrade")!=="websocket"){
-    return new Response("WebSocket gerekli",{status:426});
-   }
+  async fetch(request) {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("WebSocket gerekli", { status: 426 });
+    }
 
-   const pair=new WebSocketPair();
-   const client=pair[0];
-   const server=pair[1];
+    const url = new URL(request.url);
+    const name = String(url.searchParams.get("name") || "Misafir")
+      .replace(/[<>]/g, "")
+      .slice(0, 24);
 
-   server.accept();
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
 
-   const id=crypto.randomUUID();
-   const name=url.searchParams.get("name")||"Misafir";
+    server.accept();
 
-   this.sessions.set(id,{ws:server,name});
+    const id = crypto.randomUUID();
 
-   server.serializeAttachment({id,name});
+    const oldPeers = [...this.sessions.entries()].map(([peerId, peer]) => ({
+      id: peerId,
+      name: peer.name
+    }));
 
-   server.send(JSON.stringify({
-    type:"welcome",
-    id,
-    peers:[...this.sessions.entries()]
-     .filter(([peerId])=>peerId!==id)
-     .map(([peerId,p])=>({id:peerId,name:p.name}))
-   }));
+    this.sessions.set(id, {
+      ws: server,
+      name
+    });
 
-   this.broadcast({
-    type:"peer-joined",
-    peer:{id,name}
-   },id);
+    server.send(JSON.stringify({
+      type: "welcome",
+      id,
+      peers: oldPeers
+    }));
 
-   server.addEventListener("message",event=>{
+    this.broadcast({
+      type: "peer-joined",
+      peer: { id, name }
+    }, id);
+
+    server.addEventListener("message", event => {
+      this.onMessage(id, event.data);
+    });
+
+    server.addEventListener("close", () => {
+      this.removePeer(id);
+    });
+
+    server.addEventListener("error", () => {
+      this.removePeer(id);
+    });
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client
+    });
+  }
+
+  onMessage(id, raw) {
+    const sender = this.sessions.get(id);
+    if (!sender) return;
+
     let data;
-    try{data=JSON.parse(event.data)}catch{return}
 
-    if(data.type==="chat"){
-     this.broadcast({
-      type:"chat",
-      name,
-      message:String(data.message||"").slice(0,4000)
-     });
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
     }
 
-    if(data.type==="signal"&&data.to){
-     const target=this.sessions.get(data.to);
-     if(target){
-      target.ws.send(JSON.stringify({
-       type:"signal",
-       from:id,
-       signal:data.signal
-      }));
-     }
+    if (data.type === "chat") {
+      const message = String(data.message || "").slice(0, 4000);
+      if (!message.trim()) return;
+
+      this.broadcast({
+        type: "chat",
+        name: sender.name,
+        message
+      });
+      return;
     }
-   });
 
-   server.addEventListener("close",()=>{
-    this.sessions.delete(id);
-    this.broadcast({type:"peer-left",id});
-   });
+    if (data.type === "signal") {
+      const targetId = String(data.to || "");
+      const target = this.sessions.get(targetId);
 
-   server.addEventListener("error",()=>{
-    this.sessions.delete(id);
-   });
+      if (!target || !data.signal) return;
 
-   return new Response(null,{status:101,webSocket:client});
+      try {
+        target.ws.send(JSON.stringify({
+          type: "signal",
+          from: id,
+          signal: data.signal
+        }));
+      } catch {
+        this.removePeer(targetId);
+      }
+    }
   }
 
-  return new Response("Not found",{status:404});
- }
+  broadcast(data, exceptId = null) {
+    const message = JSON.stringify(data);
 
- broadcast(data,except){
-  const message=JSON.stringify(data);
-  for(const [id,peer] of this.sessions){
-   if(id===except)continue;
-   try{peer.ws.send(message)}catch{}
+    for (const [id, peer] of this.sessions) {
+      if (id === exceptId) continue;
+
+      try {
+        peer.ws.send(message);
+      } catch {
+        this.removePeer(id);
+      }
+    }
   }
- }
+
+  removePeer(id) {
+    if (!this.sessions.has(id)) return;
+
+    this.sessions.delete(id);
+
+    this.broadcast({
+      type: "peer-left",
+      id
+    });
+  }
 }
