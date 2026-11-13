@@ -1,4 +1,3 @@
-
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -8,8 +7,17 @@ const cors = {
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...cors }
+    headers: {
+      "Content-Type": "application/json",
+      ...cors
+    }
   });
+}
+
+function send(ws, data) {
+  try {
+    ws.send(JSON.stringify(data));
+  } catch {}
 }
 
 export class RadioRoom {
@@ -27,11 +35,32 @@ export class RadioRoom {
     const client = pair[0];
     const server = pair[1];
 
+    const peers = this.ctx.getWebSockets().map(ws => {
+      return ws.deserializeAttachment() || {};
+    });
+
+    const id = crypto.randomUUID();
+
     this.ctx.acceptWebSocket(server);
-    server.send(JSON.stringify({
-      type: "system",
-      text: "Odaya bağlandın!"
-    }));
+    server.serializeAttachment({
+      id,
+      name: "Misafir"
+    });
+
+    send(server, {
+      type: "welcome",
+      id,
+      peers
+    });
+
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws !== server) {
+        send(ws, {
+          type: "peer-joined",
+          id
+        });
+      }
+    }
 
     return new Response(null, {
       status: 101,
@@ -41,22 +70,70 @@ export class RadioRoom {
 
   webSocketMessage(ws, message) {
     try {
-      const data = JSON.parse(message);
+      const data = JSON.parse(String(message));
+      const sender = ws.deserializeAttachment() || {};
 
       if (data.type === "chat") {
-        const packet = JSON.stringify({
-          type: "chat",
-          name: String(data.name || "Misafir").slice(0, 24),
-          text: String(data.text || "").slice(0, 1000)
+        const name = String(data.name || "Misafir").slice(0, 24);
+        const text = String(data.text || "").slice(0, 1000);
+
+        if (!text.trim()) return;
+
+        ws.serializeAttachment({
+          ...sender,
+          name
         });
 
+        const packet = {
+          type: "chat",
+          id: sender.id,
+          name,
+          text,
+          time: Date.now()
+        };
+
         for (const socket of this.ctx.getWebSockets()) {
-          try {
-            socket.send(packet);
-          } catch {}
+          send(socket, packet);
+        }
+      }
+
+      if (data.type === "signal") {
+        const target = String(data.target || "");
+        const signal = data.signal;
+
+        if (!target || !signal || typeof signal !== "object") return;
+
+        for (const socket of this.ctx.getWebSockets()) {
+          if (socket === ws) continue;
+
+          const peer = socket.deserializeAttachment() || {};
+
+          if (peer.id === target) {
+            send(socket, {
+              type: "signal",
+              from: sender.id,
+              signal
+            });
+            break;
+          }
         }
       }
     } catch {}
+  }
+
+  webSocketClose(ws) {
+    const attachment = ws.deserializeAttachment() || {};
+
+    for (const socket of this.ctx.getWebSockets()) {
+      send(socket, {
+        type: "peer-left",
+        id: attachment.id
+      });
+    }
+  }
+
+  webSocketError(ws) {
+    this.webSocketClose(ws);
   }
 }
 
@@ -65,11 +142,18 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: cors });
+      return new Response(null, {
+        status: 204,
+        headers: cors
+      });
     }
 
     if (url.pathname === "/api/health") {
-      return json({ ok: true, app: "RADIO LINK" });
+      return json({
+        ok: true,
+        app: "RADIO LINK",
+        version: "2.0"
+      });
     }
 
     if (url.pathname === "/api/create" && request.method === "POST") {
@@ -78,7 +162,10 @@ export default {
         .slice(0, 6)
         .toUpperCase();
 
-      return json({ ok: true, code });
+      return json({
+        ok: true,
+        code
+      });
     }
 
     const match = url.pathname.match(
@@ -86,7 +173,10 @@ export default {
     );
 
     if (match) {
-      const id = env.ROOMS.idFromName(match[1].toUpperCase());
+      const id = env.ROOMS.idFromName(
+        match[1].toUpperCase()
+      );
+
       return env.ROOMS.get(id).fetch(request);
     }
 
