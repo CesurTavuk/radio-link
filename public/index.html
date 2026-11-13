@@ -2,348 +2,339 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10182b">
 <title>RADIO LINK</title>
 <style>
 *{box-sizing:border-box}
-body{
- margin:0;background:#0b1020;color:#eaf0ff;
- font-family:Arial,sans-serif;padding:18px
-}
-.app{max-width:650px;margin:auto}
-h1{color:#54e6c1;text-align:center;letter-spacing:3px}
-.panel{
- background:#151e32;border:1px solid #293854;
- border-radius:15px;padding:16px;margin:14px 0
-}
-input{
- width:100%;padding:13px;margin:6px 0;
- background:#0b1425;color:white;border:1px solid #344765;
- border-radius:9px;font-size:16px
-}
-button{
- padding:12px;border:0;border-radius:9px;
- background:#20cba5;color:#061b19;font-weight:bold;
- cursor:pointer;margin:4px
-}
+body{margin:0;padding:16px;background:#0b1020;color:#edf3ff;font-family:Arial,sans-serif}
+.app{max-width:850px;margin:auto}
+header{text-align:center;padding:12px}
+h1{color:#54e6c1;letter-spacing:4px}
+.panel{background:#151e32;border:1px solid #293854;border-radius:15px;padding:16px;margin:14px 0}
+input{width:100%;padding:13px;margin:6px 0;background:#0b1425;color:white;border:1px solid #344765;border-radius:9px;font-size:16px}
+button{padding:12px;border:0;border-radius:9px;background:#20cba5;color:#061b19;font-weight:bold;margin:4px;cursor:pointer}
 button.secondary{background:#344765;color:white}
 button.danger{background:#e34d65;color:white}
+button:disabled{opacity:.45}
 .row{display:flex;gap:7px;flex-wrap:wrap}
 .row button{flex:1}
-#status{color:#ffca68}
+#status{color:#ffca68;overflow-wrap:anywhere}
 #users{line-height:2}
-#messages{
- height:220px;overflow:auto;background:#0b1425;
- padding:10px;border-radius:9px;margin:10px 0
-}
-.msg{padding:7px;border-bottom:1px solid #26344c;overflow-wrap:anywhere}
-video{width:100%;background:#05080e;border-radius:10px}
-#ptt{
- width:100%;height:75px;font-size:20px;
- background:#e34d65;color:white;touch-action:none
-}
-.small{color:#9aabc6;font-size:13px}
+#messages{height:220px;overflow:auto;background:#0b1425;padding:10px;border-radius:9px;margin:10px 0}
+.msg{padding:8px;border-bottom:1px solid #26344c;overflow-wrap:anywhere}
+.small{color:#9aabc6;font-size:13px;line-height:1.5}
+video{width:100%;background:#05080e;border-radius:10px;min-height:100px}
+.videos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.videoBox{background:#0b1425;padding:8px;border-radius:10px;min-width:0}
+.videoBox p{margin:5px;font-size:13px}
+#ptt{width:100%;height:75px;font-size:20px;background:#e34d65;color:white;touch-action:none;user-select:none}
+.hidden{display:none!important}
+body.old{background:#171717;color:#eee}
+body.old .panel{background:#252525;border-color:#555;border-radius:4px}
+body.old h1{color:#fff}
+body.old button{border-radius:3px}
 </style>
 </head>
 <body>
 <div class="app">
+<header>
 <h1>RADIO LINK</h1>
-<p style="text-align:center" class="small">INTERNET COMMUNICATION SYSTEM</p>
+<p class="small">INTERNET COMMUNICATION SYSTEM</p>
+<button class="secondary" onclick="toggleDesign()">Eski / Yeni Arayüz</button>
+</header>
 
-<div class="panel">
-<h3>Bağlantı</h3>
-<input id="server" value="https://radio-link.cesurtavuk1905.workers.dev" placeholder="Cloudflare Worker adresi">
-<input id="username" placeholder="Kullanıcı adın" maxlength="24">
-<input id="room" placeholder="Oda kodu" maxlength="10">
+<section class="panel">
+<h3>Bağlantı ve oda</h3>
+<input id="server" value="https://radio-link.cesurtavuk1905.workers.dev" placeholder="Sunucu adresi">
+<input id="username" maxlength="24" placeholder="Kullanıcı adın">
+<input id="room" maxlength="10" placeholder="Oda kodu">
 <div class="row">
-<button onclick="connect()">BAĞLAN</button>
+<button onclick="createRoom()">ODA OLUŞTUR</button>
+<button onclick="connect()">ODAYA KATIL</button>
 <button class="danger" onclick="disconnect()">AYRIL</button>
 </div>
 <p id="status">● Bağlantı bekleniyor</p>
-</div>
+</section>
 
-<div class="panel">
+<section class="panel">
 <h3>Çevrimiçi kullanıcılar</h3>
 <div id="users">Henüz bağlantı yok.</div>
-</div>
+</section>
 
-<div class="panel">
+<section class="panel">
 <h3>Mesajlaşma</h3>
 <div id="messages"></div>
 <div class="row">
-<input id="message" placeholder="Mesaj yaz...">
+<input id="message" placeholder="Mesaj yaz..." maxlength="1000">
 <button onclick="sendMessage()">GÖNDER</button>
 </div>
-</div>
+</section>
 
-<div class="panel">
-<h3>Sesli iletişim</h3>
+<section class="panel">
+<h3>Sesli iletişim / Bas-konuş</h3>
 <div class="row">
-<button onclick="startMic()">🎙 Mikrofonu aç</button>
-<button class="secondary" onclick="stopMic()">Mikrofonu kapat</button>
+<button onclick="startMic()">MİKROFONU AÇ</button>
+<button class="secondary" onclick="stopMic()">MİKROFONU KAPAT</button>
 </div>
-<button id="ptt"
- onpointerdown="pushToTalk(true)"
- onpointerup="pushToTalk(false)"
- onpointerleave="pushToTalk(false)"
- onpointercancel="pushToTalk(false)">
-BASILI TUT – KONUŞ
-</button>
-<p class="small">Mikrofon izni gereklidir. Bu sürümde mikrofon yerel olarak açılır; uzaktaki kullanıcılara ses aktarımı henüz etkin değildir.</p>
-</div>
+<button id="ptt">BASILI TUT – KONUŞ</button>
+<p class="small">Konuşmak için düğmeye basılı tut. Mikrofon izni vermen gerekir.</p>
+</section>
 
-<div class="panel">
-<h3>Kamera</h3>
+<section class="panel">
+<h3>Görüntülü iletişim</h3>
 <div class="row">
-<button onclick="startCamera()">Kamerayı aç</button>
-<button class="secondary" onclick="stopCamera()">Kamerayı kapat</button>
+<button onclick="startCamera()">KAMERAYI AÇ</button>
+<button class="secondary" onclick="stopCamera()">KAMERAYI KAPAT</button>
 </div>
-<video id="preview" autoplay muted playsinline></video>
-<p class="small">Kamera önizlemesi bu cihazda gösterilir; görüntülü görüşme aktarımı henüz etkin değildir.</p>
+<div class="videos" id="videos">
+<div class="videoBox" id="localBox">
+<p>Benim kameram</p>
+<video id="localVideo" autoplay muted playsinline></video>
 </div>
+</div>
+<p class="small">Görüşme için diğer kullanıcıların da aynı odaya bağlanması gerekir.</p>
+</section>
+
+<p class="small">Not: Görüntülü ve sesli bağlantı WebRTC kullanır. Bazı mobil ağlarda bağlantı için TURN sunucusu gerekebilir.</p>
 </div>
 
 <script>
+const $ = id => document.getElementById(id);
 let socket = null;
-let localStream = null;
-let cameraStream = null;
 let myId = null;
 let users = {};
+let peers = {};
+let localStream = null;
+let cameraStream = null;
+let makingOffer = {};
+let ignoreOffer = {};
+let reconnecting = false;
 
-const $ = id => document.getElementById(id);
-
-function setStatus(text) {
-  $("status").textContent = "● " + text;
+function status(t){$("status").textContent="● "+t}
+function serverURL(){
+ return $("server").value.trim().replace(/\/+$/,"");
 }
-
-function renderUsers() {
-  const entries = Object.values(users);
-  $("users").innerHTML = "";
-
-  if (!entries.length) {
-    $("users").textContent = "Henüz başka kullanıcı yok.";
-    return;
-  }
-
-  for (const user of entries) {
-    const line = document.createElement("div");
-    line.textContent = "🟢 " + user.name;
-    $("users").appendChild(line);
-  }
+function addMessage(name,text){
+ const d=document.createElement("div");
+ d.className="msg";
+ d.textContent=name+": "+text;
+ $("messages").appendChild(d);
+ $("messages").scrollTop=$("messages").scrollHeight;
 }
-
-function addMessage(name, message) {
-  const el = document.createElement("div");
-  el.className = "msg";
-  el.textContent = name + ": " + message;
-  $("messages").appendChild(el);
-  $("messages").scrollTop = $("messages").scrollHeight;
+function renderUsers(){
+ $("users").replaceChildren();
+ const list=Object.values(users);
+ if(!list.length){$("users").textContent="Henüz başka kullanıcı yok.";return}
+ list.forEach(u=>{
+  const d=document.createElement("div");
+  d.textContent="🟢 "+u.name;
+  $("users").appendChild(d);
+ });
 }
-
-function connect() {
-  disconnect(false);
-
-  const address = $("server").value.trim().replace(/\/+$/, "");
-  const name = $("username").value.trim();
-  const room = $("room").value.trim().toUpperCase();
-
-  if (!address || !name || !room) {
-    alert("Sunucu adresi, kullanıcı adı ve oda kodunu gir.");
-    return;
-  }
-
-  if (!/^https?:\/\//i.test(address)) {
-    alert("Sunucu adresi https:// veya http:// ile başlamalı.");
-    return;
-  }
-
-  const wsAddress = address
-    .replace(/^https:/i, "wss:")
-    .replace(/^http:/i, "ws:")
-    + "/api/room/" + encodeURIComponent(room)
-    + "?name=" + encodeURIComponent(name);
-
-  try {
-    socket = new WebSocket(wsAddress);
-    setStatus("Sunucuya bağlanılıyor...");
-
-    socket.onopen = () => {
-      setStatus("Sunucuya bağlandı");
-      addMessage("Sistem", "Sunucu bağlantısı kuruldu.");
-    };
-
-    socket.onmessage = event => {
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-      handleMessage(data);
-    };
-
-    socket.onclose = () => {
-      setStatus("Bağlantı kapandı");
-      users = {};
-      renderUsers();
-      socket = null;
-    };
-
-    socket.onerror = () => {
-      setStatus("Bağlantı hatası");
-    };
-
-  } catch (error) {
-    setStatus("Bağlantı kurulamadı");
-  }
+function toggleDesign(){document.body.classList.toggle("old")}
+function validInputs(){
+ if(!$("username").value.trim()){alert("Kullanıcı adını yaz.");return false}
+ if(!$("room").value.trim()){alert("Oda kodunu yaz.");return false}
+ if(!serverURL().startsWith("https://")){alert("HTTPS sunucu adresi gerekli.");return false}
+ return true;
 }
-
-function disconnect(updateStatus = true) {
-  if (socket) {
-    const oldSocket = socket;
-    socket = null;
-    oldSocket.close();
-  }
-
-  users = {};
-  myId = null;
-  renderUsers();
-
-  if (updateStatus) {
-    setStatus("Bağlantı kesildi");
-  }
+async function createRoom(){
+ try{
+  const r=await fetch(serverURL()+"/api/create",{method:"POST"});
+  if(!r.ok)throw Error("Sunucu yanıt vermedi");
+  const d=await r.json();
+  if(!d.ok||!d.code)throw Error("Oda oluşturulamadı");
+  $("room").value=d.code;
+  addMessage("Sistem","Oda oluşturuldu: "+d.code);
+  connect();
+ }catch(e){alert("Oda oluşturulamadı: "+e.message)}
 }
-
-function handleMessage(data) {
-  if (data.type === "welcome") {
-    myId = data.id;
-    users = {};
-
-    (data.peers || []).forEach(peer => {
-      if (peer.id) {
-        users[peer.id] = {
-          id: peer.id,
-          name: peer.name || "Misafir"
-        };
-      }
-    });
-
-    renderUsers();
-    addMessage("Sistem", "Odaya katıldın.");
-  }
-
-  if (data.type === "peer-joined") {
-    users[data.id] = {
-      id: data.id,
-      name: data.name || "Misafir"
-    };
-    renderUsers();
-    addMessage("Sistem", (data.name || "Bir kullanıcı") + " odaya katıldı.");
-  }
-
-  if (data.type === "peer-left") {
-    const name = users[data.id]?.name || data.name || "Kullanıcı";
-    delete users[data.id];
-    renderUsers();
-    addMessage("Sistem", name + " odadan ayrıldı.");
-  }
-
-  if (data.type === "chat") {
-    addMessage(data.name || "Kullanıcı", data.text || "");
-  }
-
-  if (data.type === "signal") {
-    // WebRTC sinyalleri için aktarım kanalı hazır.
-    // Ses/video görüşmesi bu arayüz sürümünde henüz kurulmuş değildir.
-  }
+function connect(){
+ if(!validInputs())return;
+ if(socket)disconnect(false);
+ const room=$("room").value.trim().toUpperCase();
+ const name=$("username").value.trim().slice(0,24);
+ const wsURL=serverURL().replace(/^https:/,"wss:").replace(/^http:/,"ws:")
+  +"/api/room/"+encodeURIComponent(room)+"?name="+encodeURIComponent(name);
+ status("Sunucuya bağlanılıyor...");
+ try{
+  const ws=new WebSocket(wsURL);
+  socket=ws;
+  ws.onopen=()=>{if(socket===ws){status("Odaya bağlandı: "+room);addMessage("Sistem","Bağlantı kuruldu.")}};
+  ws.onmessage=e=>{
+   let d;try{d=JSON.parse(e.data)}catch{return}
+   if(socket===ws)handleMessage(d);
+  };
+  ws.onerror=()=>{if(socket===ws)status("Bağlantı hatası")};
+  ws.onclose=()=>{
+   if(socket===ws){
+    socket=null;cleanupPeers();users={};myId=null;renderUsers();
+    status("Bağlantı kapandı");
+   }
+  };
+ }catch(e){status("Bağlantı kurulamadı")}
 }
-
-function sendMessage() {
-  const text = $("message").value.trim();
-
-  if (!text) return;
-
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    alert("Önce sunucuya bağlan.");
-    return;
-  }
-
-  socket.send(JSON.stringify({
-    type: "chat",
-    text
-  }));
-
-  $("message").value = "";
+function send(data){
+ if(socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify(data));
 }
+function sendSignal(id,signal){send({type:"signal",target:id,signal})}
 
-$("message").addEventListener("keydown", event => {
-  if (event.key === "Enter") sendMessage();
-});
-
-async function startMic() {
-  try {
-    if (localStream) return;
-
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true
-    });
-
-    localStream.getAudioTracks().forEach(track => {
-      track.enabled = false;
-    });
-
-    setStatus("Mikrofon hazır");
-  } catch (error) {
-    alert("Mikrofon açılamadı. Site iznini kontrol et.");
-  }
-}
-
-function stopMic() {
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
-    localStream = null;
-    setStatus("Mikrofon kapalı");
-  }
-}
-
-function pushToTalk(active) {
-  if (!localStream) return;
-
-  localStream.getAudioTracks().forEach(track => {
-    track.enabled = active;
+function handleMessage(d){
+ if(d.type==="welcome"){
+  myId=d.id;users={};
+  (d.peers||[]).forEach(p=>{
+   users[p.id]={id:p.id,name:p.name||"Misafir"};
+   createPeer(p.id,true);
   });
-
-  $("ptt").textContent = active
-    ? "KONUŞUYORSUN..."
-    : "BASILI TUT – KONUŞ";
+  renderUsers();addMessage("Sistem","Odaya katıldın.");
+ }
+ if(d.type==="peer-joined"){
+  users[d.id]={id:d.id,name:d.name||"Misafir"};
+  renderUsers();addMessage("Sistem",(d.name||"Bir kullanıcı")+" katıldı.");
+  createPeer(d.id,false);
+ }
+ if(d.type==="peer-left"){
+  const n=users[d.id]?.name||"Kullanıcı";
+  delete users[d.id];closePeer(d.id);renderUsers();
+  addMessage("Sistem",n+" ayrıldı.");
+ }
+ if(d.type==="chat")addMessage(d.name||"Kullanıcı",d.text||"");
+ if(d.type==="signal")receiveSignal(d.from,d.signal);
 }
+function createPeer(id,initiator){
+ if(peers[id])return peers[id];
+ const pc=new RTCPeerConnection({
+  iceServers:[
+   {urls:"stun:stun.l.google.com:19302"},
+   {urls:"stun:stun.cloudflare.com:3478"}
+  ]
+ });
+ peers[id]=pc;
+ makingOffer[id]=false;ignoreOffer[id]=false;
 
-async function startCamera() {
-  try {
-    if (cameraStream) return;
+ if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+ if(cameraStream)cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream));
 
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: true
-    });
-
-    $("preview").srcObject = cameraStream;
-  } catch (error) {
-    alert("Kamera açılamadı. Kamera iznini kontrol et.");
+ pc.onicecandidate=e=>{
+  if(e.candidate)sendSignal(id,{candidate:e.candidate});
+ };
+ pc.ontrack=e=>{
+  let box=$("remote-"+id);
+  if(!box){
+   box=document.createElement("div");box.className="videoBox";box.id="remote-"+id;
+   const p=document.createElement("p");
+   p.textContent=users[id]?.name||"Uzak kullanıcı";
+   const v=document.createElement("video");v.autoplay=true;v.playsInline=true;v.id="video-"+id;
+   box.append(p,v);$("videos").appendChild(box);
   }
+  const v=$("video-"+id);
+  if(v&&e.streams[0])v.srcObject=e.streams[0];
+ };
+ pc.onnegotiationneeded=async()=>{
+  try{
+   makingOffer[id]=true;
+   await pc.setLocalDescription();
+   sendSignal(id,{description:pc.localDescription});
+  }catch(e){console.warn(e)}
+  finally{makingOffer[id]=false}
+ };
+ pc.onconnectionstatechange=()=>{
+  if(pc.connectionState==="failed")status("Bağlantı başarısız; TURN gerekebilir.");
+ };
+ return pc;
 }
-
-function stopCamera() {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop());
-    cameraStream = null;
-    $("preview").srcObject = null;
+async function receiveSignal(id,s){
+ if(!id||!s)return;
+ const pc=peers[id]||createPeer(id,false);
+ try{
+  if(s.description){
+   const desc=s.description;
+   const ready=!makingOffer[id]&&(pc.signalingState==="stable"||pc.signalingState==="have-local-offer");
+   const offerCollision=desc.type==="offer"&&!ready;
+   ignoreOffer[id]=offerCollision;
+   if(offerCollision)return;
+   await pc.setRemoteDescription(desc);
+   if(desc.type==="offer"){
+    await pc.setLocalDescription();
+    sendSignal(id,{description:pc.localDescription});
+   }
+  }else if(s.candidate){
+   try{await pc.addIceCandidate(s.candidate)}catch(e){if(!ignoreOffer[id])throw e}
   }
+ }catch(e){console.warn("Sinyal hatası",e)}
 }
+function closePeer(id){
+ if(peers[id]){peers[id].close();delete peers[id]}
+ delete makingOffer[id];delete ignoreOffer[id];
+ const box=$("remote-"+id);if(box)box.remove();
+}
+function cleanupPeers(){
+ Object.keys(peers).forEach(closePeer);
+}
+function disconnect(show=true){
+ if(socket){const s=socket;socket=null;s.close()}
+ cleanupPeers();users={};myId=null;renderUsers();
+ if(show)status("Bağlantı kesildi");
+}
+function sendMessage(){
+ const t=$("message").value.trim();
+ if(!t)return;
+ if(!socket||socket.readyState!==WebSocket.OPEN){alert("Önce odaya bağlan.");return}
+ send({type:"chat",text:t});$("message").value="";
+}
+$("message").addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage()});
 
-window.addEventListener("beforeunload", () => {
-  if (socket) socket.close();
-  if (localStream) localStream.getTracks().forEach(t => t.stop());
-  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+async function startMic(){
+ try{
+  if(localStream)return;
+  localStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  localStream.getAudioTracks().forEach(t=>t.enabled=false);
+  Object.entries(peers).forEach(([id,pc])=>{
+   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  });
+  status("Mikrofon hazır – bas-konuş kullanabilirsin");
+ }catch(e){alert("Mikrofon açılamadı. Site izinlerini kontrol et.")}
+}
+function stopMic(){
+ if(localStream){
+  localStream.getTracks().forEach(t=>t.stop());localStream=null;
+  Object.values(peers).forEach(pc=>pc.getSenders().forEach(s=>{
+   if(s.track&&s.track.kind==="audio")pc.removeTrack(s);
+  }));
+  status("Mikrofon kapatıldı");
+ }
+}
+function ptt(active){
+ if(!localStream)return;
+ localStream.getAudioTracks().forEach(t=>t.enabled=active);
+ $("ptt").textContent=active?"KONUŞUYORSUN...":"BASILI TUT – KONUŞ";
+}
+$("ptt").addEventListener("pointerdown",e=>{e.preventDefault();ptt(true)});
+["pointerup","pointerleave","pointercancel"].forEach(ev=>$("ptt").addEventListener(ev,()=>ptt(false)));
+
+async function startCamera(){
+ try{
+  if(cameraStream)return;
+  cameraStream=await navigator.mediaDevices.getUserMedia({video:true});
+  $("localVideo").srcObject=cameraStream;
+  Object.values(peers).forEach(pc=>cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream)));
+  status("Kamera açık");
+ }catch(e){alert("Kamera açılamadı. Site izinlerini kontrol et.")}
+}
+function stopCamera(){
+ if(!cameraStream)return;
+ cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;
+ $("localVideo").srcObject=null;
+ Object.values(peers).forEach(pc=>pc.getSenders().forEach(s=>{
+  if(s.track&&s.track.kind==="video")pc.removeTrack(s);
+ }));
+ status("Kamera kapatıldı");
+}
+window.addEventListener("beforeunload",()=>{
+ if(socket)socket.close();
+ if(localStream)localStream.getTracks().forEach(t=>t.stop());
+ if(cameraStream)cameraStream.getTracks().forEach(t=>t.stop());
 });
 </script>
 </body>
