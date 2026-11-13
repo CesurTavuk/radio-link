@@ -9,6 +9,12 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "radio-link-files"
+    }
+  ],
   "durable_objects": {
     "bindings": [
       {
