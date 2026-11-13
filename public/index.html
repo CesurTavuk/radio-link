@@ -120,17 +120,24 @@ Android Chrome'da bu özellik cihaz sürümüne göre çalışmayabilir.
 </section>
 
 <section class="panel">
-<h3>Dosya aktarımı</h3>
+
 <p class="small">
 2,5 GB'a kadar dosya aktarımı için R2 tabanlı parçalı aktarım modülü sonraki kurulum adımında eklenecek.
 </p>
 </section>
 
-<p class="small">
-Ses, kamera ve ekran paylaşımı WebRTC kullanır. Ping değeri bağlı eş cihazla ölçülen yaklaşık gidiş-dönüş gecikmesidir.
-Bazı ağlarda TURN sunucusu gerekebilir.
-</p>
+
+<section class="panel">
+<h3>Oda dosyaları</h3>
+<input type="file" id="fileInput">
+<div class="row">
+<button onclick="uploadFile()">ODAYA DOSYA GÖNDER</button>
+<button class="secondary" onclick="loadFiles()">DOSYALARI YENİLE</button>
 </div>
+<p id="fileProgress" class="small">Dosya bekleniyor.</p>
+<div id="fileList"></div>
+<p class="small">Maksimum dosya: 2,5 GB. Aktarım 10 MiB parçalarla yapılır.</p>
+</section>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -518,6 +525,186 @@ function stopPingMonitor(){
  if(pingTimer){clearInterval(pingTimer);pingTimer=null}
  $("ping").textContent="-- ms";
  $("quality").textContent="Bağlantı ölçümü bekleniyor.";
+}
+
+/* RADIO LINK R2 DOSYA AKTARIMI */
+const FILE_LIMIT=2.5*1024*1024*1024;
+const PART_SIZE=10*1024*1024;
+
+function currentRoom(){
+ return $("room").value.trim().toUpperCase();
+}
+function fileApi(path){
+ return serverURL()+"/api/files/"+path;
+}
+function fileMessage(t){
+ $("fileProgress").textContent=t;
+}
+
+async function uploadFile(){
+ const file=$("fileInput").files[0];
+ const room=currentRoom();
+
+ if(!socket||socket.readyState!==WebSocket.OPEN){
+  alert("Önce odaya bağlan.");return;
+ }
+ if(!file){alert("Önce dosya seç.");return}
+ if(file.size>FILE_LIMIT){
+  alert("Dosya 2,5 GB sınırını aşıyor.");return;
+ }
+
+ let uploadInfo=null;
+ try{
+  fileMessage("Yükleme hazırlanıyor...");
+
+  let r=await fetch(fileApi("create"),{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    room,
+    name:file.name,
+    size:file.size,
+    type:file.type||"application/octet-stream"
+   })
+  });
+  uploadInfo=await r.json();
+  if(!r.ok||!uploadInfo.ok)throw Error(uploadInfo.error||"Yükleme başlatılamadı");
+
+  const count=Math.ceil(file.size/PART_SIZE);
+  const parts=[];
+
+  for(let i=0;i<count;i++){
+   const start=i*PART_SIZE;
+   const end=Math.min(start+PART_SIZE,file.size);
+   const chunk=file.slice(start,end);
+
+   r=await fetch(fileApi("part")+
+    "?room="+encodeURIComponent(room)+
+    "&key="+encodeURIComponent(uploadInfo.key)+
+    "&uploadId="+encodeURIComponent(uploadInfo.uploadId)+
+    "&partNumber="+(i+1),{
+     method:"PUT",
+     body:chunk
+    });
+
+   const result=await r.json();
+   if(!r.ok||!result.ok)
+    throw Error(result.error||"Parça "+(i+1)+" yüklenemedi");
+
+   parts.push(result.part);
+   const percent=Math.round(end/file.size*100);
+   fileMessage("Yükleniyor: %"+percent+" ("+(i+1)+"/"+count+")");
+  }
+
+  r=await fetch(fileApi("complete"),{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    room,
+    key:uploadInfo.key,
+    uploadId:uploadInfo.uploadId,
+    parts
+   })
+  });
+  const done=await r.json();
+  if(!r.ok||!done.ok)throw Error(done.error||"Dosya tamamlanamadı");
+
+  fileMessage("Dosya odaya yüklendi: "+file.name);
+  $("fileInput").value="";
+  await loadFiles();
+ }catch(e){
+  fileMessage("Hata: "+e.message);
+  if(uploadInfo?.uploadId){
+   fetch(fileApi("abort")+
+    "?room="+encodeURIComponent(room)+
+    "&key="+encodeURIComponent(uploadInfo.key)+
+    "&uploadId="+encodeURIComponent(uploadInfo.uploadId),{
+     method:"DELETE"
+    }).catch(()=>{});
+  }
+ }
+}
+
+async function loadFiles(){
+ const room=currentRoom();
+ if(!room)return;
+
+ try{
+  const r=await fetch(fileApi("list")+"?room="+encodeURIComponent(room));
+  const data=await r.json();
+  if(!r.ok||!data.ok)throw Error(data.error||"Dosyalar alınamadı");
+
+  const list=$("fileList");
+  list.replaceChildren();
+
+  if(!data.files.length){
+   list.textContent="Bu odada henüz dosya yok.";
+   return;
+  }
+
+  data.files.forEach(f=>{
+   const box=document.createElement("div");
+   box.className="msg";
+
+   const title=document.createElement("strong");
+   title.textContent=f.name;
+
+   const info=document.createElement("div");
+   info.className="small";
+   info.textContent=(f.size/1024/1024).toFixed(1)+" MB";
+
+   const cacheBtn=document.createElement("button");
+   cacheBtn.className="secondary";
+   cacheBtn.textContent="ÖNBELLEĞE AL";
+   cacheBtn.onclick=()=>cacheFile(f);
+
+   const downloadBtn=document.createElement("button");
+   downloadBtn.textContent="CİHAZA İNDİR";
+   downloadBtn.onclick=()=>downloadFile(f);
+
+   box.append(title,info,cacheBtn,downloadBtn);
+   list.appendChild(box);
+  });
+ }catch(e){
+  fileMessage("Dosya listesi hatası: "+e.message);
+ }
+}
+
+function fileDownloadURL(f){
+ return fileApi("download")+
+  "?room="+encodeURIComponent(currentRoom())+
+  "&key="+encodeURIComponent(f.key);
+}
+
+function downloadFile(f){
+ const a=document.createElement("a");
+ a.href=fileDownloadURL(f);
+ a.download=f.name;
+ a.rel="noopener";
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+}
+
+async function cacheFile(f){
+ try{
+  if(!("caches" in window))
+   throw Error("Bu tarayıcı önbellek API'sini desteklemiyor.");
+
+  fileMessage("Dosya tarayıcı önbelleğine alınıyor...");
+  const url=fileDownloadURL(f);
+  const response=await fetch(url);
+
+  if(!response.ok)throw Error("Dosya indirilemedi.");
+
+  const cache=await caches.open("radio-link-"+currentRoom());
+  await cache.put(new Request(url),response);
+
+  fileMessage(f.name+" tarayıcı önbelleğine alındı.");
+ }catch(e){
+  fileMessage("Önbellek hatası: "+e.message+
+   " Depolama alanı yetersiz olabilir.");
+ }
 }
 
 window.addEventListener("beforeunload",()=>{
