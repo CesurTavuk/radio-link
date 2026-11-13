@@ -1,718 +1,499 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#10182b">
 <title>RADIO LINK</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;padding:14px;background:#0b1020;color:#edf3ff;font-family:Arial,sans-serif}
-.app{max-width:900px;margin:auto}
-header{text-align:center;padding:12px}
-h1{color:#54e6c1;letter-spacing:4px}
-.panel{background:#151e32;border:1px solid #293854;border-radius:15px;padding:16px;margin:14px 0}
-input{width:100%;padding:13px;margin:6px 0;background:#0b1425;color:white;border:1px solid #344765;border-radius:9px;font-size:16px}
-button{padding:12px;border:0;border-radius:9px;background:#20cba5;color:#061b19;font-weight:bold;margin:4px;cursor:pointer}
-button.secondary{background:#344765;color:white}
-button.danger{background:#e34d65;color:white}
-button:disabled{opacity:.45}
-.row{display:flex;gap:7px;flex-wrap:wrap}
-.row button{flex:1}
-#status{color:#ffca68;overflow-wrap:anywhere}
-#users{line-height:2}
-#messages{height:190px;overflow:auto;background:#0b1425;padding:10px;border-radius:9px;margin:10px 0}
-.msg{padding:8px;border-bottom:1px solid #26344c;overflow-wrap:anywhere}
-.small{color:#9aabc6;font-size:13px;line-height:1.5}
-video{width:100%;background:#05080e;border-radius:10px;min-height:100px}
-.videos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-.videoBox{background:#0b1425;padding:8px;border-radius:10px;min-width:0}
-.videoBox p{margin:5px;font-size:13px}
-#ptt{width:100%;height:75px;font-size:20px;background:#e34d65;color:white;touch-action:none;user-select:none}
-.metric{font-size:25px;font-weight:bold;color:#54e6c1}
-body.old{background:#171717;color:#eee}
-body.old .panel{background:#252525;border-color:#555;border-radius:4px}
-body.old h1{color:#fff}
-body.old button{border-radius:3px}
+body{margin:0;background:#101522;color:#fff;font-family:Arial,sans-serif}
+header{padding:18px;background:#182236;display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;color:#55d6be;font-size:23px}
+main{max-width:900px;margin:auto;padding:15px}
+.panel{background:#1b263a;padding:16px;border-radius:14px;margin:12px 0}
+input,button{padding:12px;border:0;border-radius:8px;margin:4px}
+input{background:#101a2b;color:white;max-width:100%}
+button{background:#36bfa6;color:#071b19;font-weight:bold;cursor:pointer}
+button.secondary{background:#34435d;color:white}
+button.danger{background:#e45d67;color:white}
+#messages{height:220px;overflow:auto;background:#0c1422;padding:10px;border-radius:8px}
+#users{display:flex;gap:7px;flex-wrap:wrap}
+.user{background:#34435d;padding:7px 10px;border-radius:20px}
+.row{display:flex;gap:5px;flex-wrap:wrap}
+.row input{flex:1;min-width:130px}
+#ptt{width:100%;height:75px;font-size:22px;background:#e45d67;color:white;touch-action:none}
+#ptt.active{background:#36bfa6}
+.file{padding:10px;background:#26364e;border-radius:8px;margin:8px 0}
+small{color:#aab8cc}
+video{width:100%;max-height:280px;background:#000;border-radius:10px}
 </style>
 </head>
 <body>
-<div class="app">
+
 <header>
-<h1>RADIO LINK</h1>
-<p class="small">INTERNET COMMUNICATION SYSTEM</p>
-<button class="secondary" onclick="toggleDesign()">Eski / Yeni Arayüz</button>
+<h1>📻 RADIO LINK</h1>
+<span id="status">Bağlantı yok</span>
 </header>
 
+<main>
 <section class="panel">
-<h3>Bağlantı ve oda</h3>
-<input id="server" value="https://radio-link.cesurtavuk1905.workers.dev">
-<input id="username" maxlength="24" placeholder="Kullanıcı adın">
-<input id="room" maxlength="10" placeholder="Oda kodu">
+<h3>Odaya bağlan</h3>
 <div class="row">
-<button onclick="createRoom()">ODA OLUŞTUR</button>
-<button onclick="connect()">ODAYA KATIL</button>
-<button class="danger" onclick="disconnect()">AYRIL</button>
+<input id="username" placeholder="Kullanıcı adı">
+<input id="room" placeholder="Oda kodu">
 </div>
-<p id="status">● Bağlantı bekleniyor</p>
-</section>
-
-<section class="panel">
-<h3>Bağlantı kalitesi</h3>
 <div class="row">
-<div style="flex:1">
-<div class="small">WebRTC gecikmesi</div>
-<div class="metric" id="ping">-- ms</div>
+<button onclick="createRoom()">Oda oluştur</button>
+<button onclick="joinRoom()">Odaya katıl</button>
 </div>
-<div style="flex:1">
-<div class="small">Bağlı kullanıcı</div>
-<div class="metric" id="peerCount">0</div>
-</div>
-</div>
-<p class="small" id="quality">Bağlantı ölçümü bekleniyor.</p>
+<p id="roomInfo"></p>
 </section>
 
 <section class="panel">
-<h3>Çevrimiçi kullanıcılar</h3>
-<div id="users">Henüz bağlantı yok.</div>
+<h3>🟢 Çevrimiçi kullanıcılar</h3>
+<div id="users"></div>
 </section>
 
 <section class="panel">
-<h3>Mesajlaşma</h3>
+<h3>🎙️ Bas-konuş</h3>
+<button id="ptt">BASILI TUTARAK KONUŞ</button>
+<p><small>Mikrofon izni gerektiğinde tarayıcıdan izin ver.</small></p>
+</section>
+
+<section class="panel">
+<h3>📹 Kamera ve ekran paylaşımı</h3>
+<div class="row">
+<button onclick="toggleCamera()">Kamerayı aç / kapat</button>
+<button onclick="toggleMirror()">Mirror / Ekran paylaş</button>
+</div>
+<video id="localVideo" autoplay muted playsinline></video>
+</section>
+
+<section class="panel">
+<h3>💬 Mesajlar</h3>
 <div id="messages"></div>
 <div class="row">
-<input id="message" placeholder="Mesaj yaz..." maxlength="1000">
-<button onclick="sendMessage()">GÖNDER</button>
+<input id="message" placeholder="Mesaj yaz...">
+<button onclick="sendMessage()">Gönder</button>
 </div>
 </section>
 
 <section class="panel">
-<h3>Bas-konuş (PTT)</h3>
-<button id="ptt">BASILI TUT – KONUŞ</button>
-<p class="small">İlk basışta mikrofon izni istenir. Mikrofonu ayrıca açmana gerek yok.</p>
-</section>
-
-<section class="panel">
-<h3>Kamera ve görüntülü iletişim</h3>
-<div class="row">
-<button onclick="startCamera()">KAMERAYI AÇ</button>
-<button class="secondary" onclick="stopCamera()">KAMERAYI KAPAT</button>
-</div>
-<div class="videos" id="videos">
-<div class="videoBox" id="localBox">
-<p>Benim kameram</p>
-<video id="localVideo" autoplay muted playsinline></video>
-</div>
-</div>
-</section>
-
-<section class="panel">
-<h3>Mirror – Ekran yansıtma</h3>
-<div class="row">
-<button onclick="startMirror()">EKRANIMI YANSIT</button>
-<button class="danger" onclick="stopMirror()">YANSITMAYI DURDUR</button>
-</div>
-<p class="small">
-Ekranını odadaki diğer kişilere canlı aktarır. Tarayıcı ve cihaz ekran paylaşımını desteklemelidir.
-Android Chrome'da bu özellik cihaz sürümüne göre çalışmayabilir.
-</p>
-</section>
-
-<section class="panel">
-
-<p class="small">
-2,5 GB'a kadar dosya aktarımı için R2 tabanlı parçalı aktarım modülü sonraki kurulum adımında eklenecek.
-</p>
-</section>
-
-
-<section class="panel">
-<h3>Oda dosyaları</h3>
+<h3>📁 Dosya paylaşımı</h3>
+<p><small>En fazla 2.5 GiB. Dosyalar Cloudflare R2 üzerinde saklanır.</small></p>
 <input type="file" id="fileInput">
-<div class="row">
-<button onclick="uploadFile()">ODAYA DOSYA GÖNDER</button>
-<button class="secondary" onclick="loadFiles()">DOSYALARI YENİLE</button>
-</div>
-<p id="fileProgress" class="small">Dosya bekleniyor.</p>
+<button onclick="uploadFile()">Dosyayı yükle</button>
+<button class="secondary" onclick="loadFiles()">Dosyaları yenile</button>
 <div id="fileList"></div>
-<p class="small">Maksimum dosya: 2,5 GB. Aktarım 10 MiB parçalarla yapılır.</p>
 </section>
+
+<section class="panel">
+<h3>📡 Bağlantı ve ping</h3>
+<p>WebRTC P2P gecikmesi: <b id="ping">--</b></p>
+<p><small>Ping ölçümü bağlantı kurulan eş cihaz üzerinden yapılır.</small></p>
+</section>
+</main>
 
 <script>
-const $ = id => document.getElementById(id);
-
-let socket=null;
-let myId=null;
-let users={};
+const API = "";
+let ws=null, roomCode="", myId="";
 let peers={};
 let localStream=null;
 let cameraStream=null;
-let screenStream=null;
-let pttWanted=false;
-let pingTimer=null;
+let mirrorStream=null;
+let audioStream=null;
 
-function status(t){$("status").textContent="● "+t}
-function serverURL(){return $("server").value.trim().replace(/\/+$/,"")}
-function toggleDesign(){document.body.classList.toggle("old")}
+const $=id=>document.getElementById(id);
 
-function addMessage(name,text){
- const d=document.createElement("div");
- d.className="msg";
- d.textContent=name+": "+text;
- $("messages").appendChild(d);
- $("messages").scrollTop=$("messages").scrollHeight;
-}
-
-function renderUsers(){
- $("users").replaceChildren();
- const list=Object.values(users);
- $("peerCount").textContent=list.length;
- if(!list.length){$("users").textContent="Henüz başka kullanıcı yok.";return}
- list.forEach(u=>{
-  const d=document.createElement("div");
-  d.textContent="🟢 "+u.name;
-  $("users").appendChild(d);
- });
-}
-
-function validInputs(){
- if(!$("username").value.trim()){alert("Kullanıcı adını yaz.");return false}
- if(!$("room").value.trim()){alert("Oda kodunu yaz.");return false}
- if(!serverURL().startsWith("https://")){alert("HTTPS adresi gerekli.");return false}
- return true;
-}
+function setStatus(s){$("status").textContent=s}
 
 async function createRoom(){
+ const name=$("username").value.trim();
+ if(!name)return alert("Kullanıcı adı yaz.");
  try{
-  const r=await fetch(serverURL()+"/api/create",{method:"POST"});
-  if(!r.ok)throw Error("Sunucu yanıt vermedi");
+  const r=await fetch("/api/create",{method:"POST"});
   const d=await r.json();
-  if(!d.ok||!d.code)throw Error("Oda oluşturulamadı");
+  if(!d.code)throw new Error("Oda oluşturulamadı");
   $("room").value=d.code;
-  addMessage("Sistem","Oda oluşturuldu: "+d.code);
-  connect();
- }catch(e){alert("Oda oluşturulamadı: "+e.message)}
+  connectRoom(d.code,name);
+ }catch(e){alert(e.message)}
 }
 
-function connect(){
- if(!validInputs())return;
- if(socket)disconnect(false);
+function joinRoom(){
+ const name=$("username").value.trim();
+ const code=$("room").value.trim().toUpperCase();
+ if(!name||!code)return alert("Kullanıcı adı ve oda kodu gerekli.");
+ connectRoom(code,name);
+}
 
- const room=$("room").value.trim().toUpperCase();
- const name=$("username").value.trim().slice(0,24);
- const wsURL=serverURL().replace(/^https:/,"wss:").replace(/^http:/,"ws:")
-  +"/api/room/"+encodeURIComponent(room)+"?name="+encodeURIComponent(name);
+function connectRoom(code,name){
+ if(ws)ws.close();
+ roomCode=code;
+ const protocol=location.protocol==="https:"?"wss:":"ws:";
+ ws=new WebSocket(`${protocol}//${location.host}/api/room/${encodeURIComponent(code)}?name=${encodeURIComponent(name)}`);
 
- status("Sunucuya bağlanılıyor...");
- try{
-  const ws=new WebSocket(wsURL);
-  socket=ws;
-  ws.onopen=()=>{
-   if(socket===ws){
-    status("Odaya bağlandı: "+room);
-    addMessage("Sistem","Bağlantı kuruldu.");
-    startPingMonitor();
-   }
-  };
-  ws.onmessage=e=>{
-   let d;try{d=JSON.parse(e.data)}catch{return}
-   if(socket===ws)handleMessage(d);
-  };
-  ws.onerror=()=>{if(socket===ws)status("Bağlantı hatası")};
-  ws.onclose=()=>{
-   if(socket===ws){
-    socket=null;
-    cleanupPeers();
-    users={};myId=null;renderUsers();
-    stopPingMonitor();
-    status("Bağlantı kapandı");
-   }
-  };
- }catch(e){status("Bağlantı kurulamadı")}
+ ws.onopen=()=>{
+  setStatus("Bağlandı");
+  $("roomInfo").textContent="Oda: "+roomCode;
+  loadFiles();
+ };
+
+ ws.onclose=()=>setStatus("Bağlantı kesildi");
+ ws.onerror=()=>setStatus("Bağlantı hatası");
+
+ ws.onmessage=async event=>{
+  const data=JSON.parse(event.data);
+
+  if(data.type==="welcome"){
+   myId=data.id;
+   renderUsers(data.peers||[]);
+  }
+  if(data.type==="peer-joined"){
+   addUser(data.peer);
+   createPeer(data.peer.id,true);
+  }
+  if(data.type==="peer-left"){
+   removeUser(data.id);
+   if(peers[data.id])peers[data.id].close();
+   delete peers[data.id];
+  }
+  if(data.type==="chat"){
+   addMessage(data.name,data.message);
+  }
+  if(data.type==="signal"){
+   await handleSignal(data.from,data.signal);
+  }
+ };
 }
 
 function send(data){
- if(socket&&socket.readyState===WebSocket.OPEN)
-  socket.send(JSON.stringify(data));
-}
-function sendSignal(id,signal){
- send({type:"signal",target:id,signal});
+ if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data));
 }
 
-function handleMessage(d){
- if(d.type==="welcome"){
-  myId=d.id;users={};
-  (d.peers||[]).forEach(p=>{
-   users[p.id]={id:p.id,name:p.name||"Misafir"};
-   createPeer(p.id,true);
-  });
-  renderUsers();addMessage("Sistem","Odaya katıldın.");
- }
- if(d.type==="peer-joined"){
-  users[d.id]={id:d.id,name:d.name||"Misafir"};
-  renderUsers();
-  addMessage("Sistem",(d.name||"Bir kullanıcı")+" katıldı.");
-  createPeer(d.id,false);
- }
- if(d.type==="peer-left"){
-  const n=users[d.id]?.name||"Kullanıcı";
-  delete users[d.id];closePeer(d.id);renderUsers();
-  addMessage("Sistem",n+" ayrıldı.");
- }
- if(d.type==="chat")addMessage(d.name||"Kullanıcı",d.text||"");
- if(d.type==="signal")receiveSignal(d.from,d.signal);
+function renderUsers(list){
+ $("users").innerHTML="";
+ list.forEach(addUser);
 }
+
+function addUser(user){
+ if(!user||!user.id||user.id===myId)return;
+ if(document.getElementById("u"+user.id))return;
+ const el=document.createElement("span");
+ el.className="user";
+ el.id="u"+user.id;
+ el.textContent="🟢 "+user.name;
+ $("users").appendChild(el);
+}
+
+function removeUser(id){
+ const el=document.getElementById("u"+id);
+ if(el)el.remove();
+}
+
+function addMessage(name,message){
+ const el=document.createElement("div");
+ const strong=document.createElement("b");
+ strong.textContent=name+": ";
+ el.append(strong,document.createTextNode(message));
+ $("messages").appendChild(el);
+ $("messages").scrollTop=$("messages").scrollHeight;
+}
+
+function sendMessage(){
+ const value=$("message").value.trim();
+ if(!value)return;
+ send({type:"chat",message:value});
+ $("message").value="";
+}
+
+$("message").addEventListener("keydown",e=>{
+ if(e.key==="Enter")sendMessage();
+});
+
+/* WEBRTC */
 
 function createPeer(id,initiator){
  if(peers[id])return peers[id];
 
  const pc=new RTCPeerConnection({
   iceServers:[
-   {urls:"stun:stun.cloudflare.com:3478"},
-   {urls:"stun:stun.l.google.com:19302"}
-  ],
-  iceCandidatePoolSize:10,
-  bundlePolicy:"max-bundle",
-  rtcpMuxPolicy:"require"
+   {urls:"stun:stun.l.google.com:19302"},
+   {urls:"stun:stun1.l.google.com:19302"}
+  ]
  });
 
  peers[id]=pc;
 
- if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
- if(cameraStream)cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream));
- if(screenStream)screenStream.getTracks().forEach(t=>pc.addTrack(t,screenStream));
+ pc.addTransceiver("audio",{direction:"sendrecv"});
+ pc.addTransceiver("video",{direction:"sendrecv"});
 
  pc.onicecandidate=e=>{
-  if(e.candidate)sendSignal(id,{candidate:e.candidate});
+  if(e.candidate)send({
+   type:"signal",
+   to:id,
+   signal:{candidate:e.candidate}
+  });
  };
 
  pc.ontrack=e=>{
-  let box=$("remote-"+id);
-  if(!box){
-   box=document.createElement("div");
-   box.className="videoBox";
-   box.id="remote-"+id;
-
-   const p=document.createElement("p");
-   p.textContent=users[id]?.name||"Uzak kullanıcı";
-
-   const v=document.createElement("video");
-   v.autoplay=true;v.playsInline=true;v.id="video-"+id;
-
-   box.append(p,v);
-   $("videos").appendChild(box);
+  let video=document.getElementById("remote"+id);
+  if(!video){
+   video=document.createElement("video");
+   video.id="remote"+id;
+   video.autoplay=true;
+   video.playsInline=true;
+   document.querySelector("main").appendChild(video);
   }
-  const v=$("video-"+id);
-  if(v&&e.streams[0])v.srcObject=e.streams[0];
+  video.srcObject=e.streams[0];
  };
 
  pc.onnegotiationneeded=async()=>{
   try{
-   await pc.setLocalDescription();
-   sendSignal(id,{description:pc.localDescription});
-  }catch(e){console.warn("Teklif hatası",e)}
+   const offer=await pc.createOffer();
+   await pc.setLocalDescription(offer);
+   send({type:"signal",to:id,signal:{description:pc.localDescription}});
+  }catch(e){console.error(e)}
  };
 
  pc.onconnectionstatechange=()=>{
-  if(pc.connectionState==="failed")
-   status("P2P bağlantısı başarısız; TURN gerekebilir.");
+  if(pc.connectionState==="connected")measurePing(pc);
  };
+
+ if(localStream)attach(localStream);
+ if(audioStream)attach(audioStream);
+ if(cameraStream)attach(cameraStream);
+ if(mirrorStream)attach(mirrorStream);
 
  return pc;
 }
 
-async function receiveSignal(id,s){
- if(!id||!s)return;
- const pc=peers[id]||createPeer(id,false);
+async function handleSignal(id,signal){
+ const pc=createPeer(id,false);
  try{
-  if(s.description){
-   await pc.setRemoteDescription(s.description);
-   if(s.description.type==="offer"){
-    await pc.setLocalDescription();
-    sendSignal(id,{description:pc.localDescription});
+  if(signal.description){
+   await pc.setRemoteDescription(signal.description);
+   if(signal.description.type==="offer"){
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send({type:"signal",to:id,signal:{description:pc.localDescription}});
    }
-  }else if(s.candidate){
-   await pc.addIceCandidate(s.candidate);
   }
- }catch(e){console.warn("Sinyal hatası",e)}
+  if(signal.candidate)await pc.addIceCandidate(signal.candidate);
+ }catch(e){console.error("Sinyal hatası",e)}
 }
 
-function closePeer(id){
- if(peers[id]){peers[id].close();delete peers[id]}
- const box=$("remote-"+id);if(box)box.remove();
-}
-function cleanupPeers(){
- Object.keys(peers).forEach(closePeer);
-}
-function disconnect(show=true){
- stopPingMonitor();
- if(socket){const s=socket;socket=null;s.close()}
- cleanupPeers();
- users={};myId=null;renderUsers();
- if(show)status("Bağlantı kesildi");
-}
+/* Track ekleme: transceiver receiver türü kullanılır. */
 
-function sendMessage(){
- const t=$("message").value.trim();
- if(!t)return;
- if(!socket||socket.readyState!==WebSocket.OPEN){
-  alert("Önce odaya bağlan.");return;
+async function attach(stream){
+ if(!stream)return;
+ for(const pc of Object.values(peers)){
+  for(const track of stream.getTracks()){
+   const transceiver=pc.getTransceivers().find(
+    t=>t.receiver.track.kind===track.kind
+   );
+   if(transceiver){
+    try{await transceiver.sender.replaceTrack(track)}catch(e){console.error(e)}
+   }
+  }
  }
- send({type:"chat",text:t});
- $("message").value="";
 }
-$("message").addEventListener("keydown",e=>{
- if(e.key==="Enter")sendMessage();
-});
 
-/* PTT: ilk basışta mikrofon izni alır */
-async function pttDown(e){
+async function detach(kind){
+ for(const pc of Object.values(peers)){
+  const transceiver=pc.getTransceivers().find(
+   t=>t.receiver.track.kind===kind
+  );
+  if(transceiver){
+   try{await transceiver.sender.replaceTrack(null)}catch(e){console.error(e)}
+  }
+ }
+}
+
+/* BAS-KONUŞ */
+
+async function startPTT(){
+ try{
+  audioStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  await attach(audioStream);
+  $("ptt").classList.add("active");
+ }catch(e){alert("Mikrofon açılamadı: "+e.message)}
+}
+
+async function stopPTT(){
+ if(audioStream){
+  audioStream.getTracks().forEach(t=>t.stop());
+  audioStream=null;
+ }
+ await detach("audio");
+ $("ptt").classList.remove("active");
+}
+
+$("ptt").addEventListener("pointerdown",e=>{
  e.preventDefault();
- pttWanted=true;
- $("ptt").textContent="MİKROFON AÇILIYOR...";
- try{
-  if(!localStream){
-   localStream=await navigator.mediaDevices.getUserMedia({
-    audio:{
-     echoCancellation:true,
-     noiseSuppression:true,
-     autoGainControl:true
-    }
-   });
-   localStream.getAudioTracks().forEach(t=>t.enabled=false);
-   Object.values(peers).forEach(pc=>{
-    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-   });
-  }
-  localStream.getAudioTracks().forEach(t=>t.enabled=pttWanted);
-  $("ptt").textContent=pttWanted?"KONUŞUYORSUN...":"BASILI TUT – KONUŞ";
- }catch(err){
-  pttWanted=false;
-  $("ptt").textContent="BASILI TUT – KONUŞ";
-  alert("Mikrofon izni gerekli. Site izinlerini kontrol et.");
- }
-}
-function pttUp(){
- pttWanted=false;
- if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=false);
- $("ptt").textContent="BASILI TUT – KONUŞ";
-}
-$("ptt").addEventListener("pointerdown",pttDown);
-["pointerup","pointerleave","pointercancel"].forEach(ev=>{
- $("ptt").addEventListener(ev,pttUp);
+ startPTT();
 });
+$("ptt").addEventListener("pointerup",stopPTT);
+$("ptt").addEventListener("pointercancel",stopPTT);
+$("ptt").addEventListener("contextmenu",e=>e.preventDefault());
 
-async function startCamera(){
- try{
-  if(cameraStream)return;
-  cameraStream=await navigator.mediaDevices.getUserMedia({
-   video:{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}}
-  });
-  $("localVideo").srcObject=cameraStream;
-  Object.values(peers).forEach(pc=>{
-   cameraStream.getTracks().forEach(t=>pc.addTrack(t,cameraStream));
-  });
-  status("Kamera açık");
- }catch(e){alert("Kamera açılamadı. Site izinlerini kontrol et.")}
-}
-function stopCamera(){
- if(!cameraStream)return;
- cameraStream.getTracks().forEach(t=>t.stop());
- cameraStream=null;
- $("localVideo").srcObject=null;
- Object.values(peers).forEach(pc=>{
-  pc.getSenders().forEach(s=>{
-   if(s.track&&s.track.kind==="video"&&s.track!==screenStream?.getVideoTracks()[0])
-    pc.removeTrack(s);
-  });
- });
- status("Kamera kapatıldı");
-}
+/* KAMERA */
 
-/* MIRROR – ekran paylaşımı */
-async function startMirror(){
- if(!navigator.mediaDevices?.getDisplayMedia){
-  alert("Bu tarayıcı ekran paylaşımını desteklemiyor. Masaüstü Chrome deneyebilirsin.");
+async function toggleCamera(){
+ if(cameraStream){
+  cameraStream.getTracks().forEach(t=>t.stop());
+  cameraStream=null;
+  await detach("video");
+  $("localVideo").srcObject=null;
   return;
  }
  try{
-  screenStream=await navigator.mediaDevices.getDisplayMedia({
-   video:{frameRate:{ideal:15,max:24}},
-   audio:false
-  });
-  const track=screenStream.getVideoTracks()[0];
-  track.contentHint="detail";
-
-  Object.values(peers).forEach(pc=>{
-   pc.addTrack(track,screenStream);
-  });
-
-  track.onended=()=>stopMirror();
-  status("Ekran yansıtılıyor");
-  addMessage("Sistem","Ekran yansıtma başladı.");
- }catch(e){
-  screenStream=null;
-  if(e.name!=="NotAllowedError")
-   alert("Ekran yansıtma başlatılamadı: "+e.message);
- }
+  cameraStream=await navigator.mediaDevices.getUserMedia({video:true});
+  $("localVideo").srcObject=cameraStream;
+  await attach(cameraStream);
+ }catch(e){alert("Kamera açılamadı: "+e.message)}
 }
-function stopMirror(){
- if(!screenStream)return;
- screenStream.getTracks().forEach(t=>t.stop());
- screenStream=null;
 
- Object.values(peers).forEach(pc=>{
-  pc.getSenders().forEach(s=>{
-   if(s.track&&s.track.kind==="video"&&
-      s.track!==cameraStream?.getVideoTracks()[0]){
-    pc.removeTrack(s);
+/* MIRROR */
+
+async function toggleMirror(){
+ if(mirrorStream){
+  mirrorStream.getTracks().forEach(t=>t.stop());
+  mirrorStream=null;
+  await detach("video");
+  $("localVideo").srcObject=null;
+  return;
+ }
+ if(!navigator.mediaDevices.getDisplayMedia){
+  return alert("Bu tarayıcı ekran paylaşımını desteklemiyor.");
+ }
+ try{
+  mirrorStream=await navigator.mediaDevices.getDisplayMedia({video:true});
+  $("localVideo").srcObject=mirrorStream;
+  await attach(mirrorStream);
+  mirrorStream.getVideoTracks()[0].onended=async()=>{
+   mirrorStream=null;
+   await detach("video");
+   $("localVideo").srcObject=null;
+  };
+ }catch(e){alert("Ekran paylaşımı başlatılamadı: "+e.message)}
+}
+
+/* PING */
+
+async function measurePing(pc){
+ try{
+  const stats=await pc.getStats();
+  stats.forEach(s=>{
+   if(s.type==="candidate-pair"&&s.state==="succeeded"&&s.currentRoundTripTime!==undefined){
+    $("ping").textContent=Math.round(s.currentRoundTripTime*1000)+" ms";
    }
   });
- });
- status("Ekran yansıtma durduruldu");
+ }catch(e){}
 }
 
-/* Gecikme ölçümü ve görüntü bitrate ayarı */
-async function updatePing(){
- let values=[];
- for(const pc of Object.values(peers)){
-  if(pc.connectionState!=="connected")continue;
-  try{
-   const stats=await pc.getStats();
-   stats.forEach(s=>{
-    if(s.type==="candidate-pair"&&s.state==="succeeded"&&
-       s.nominated&&s.currentRoundTripTime!=null){
-     values.push(s.currentRoundTripTime*1000);
-    }
-   });
+setInterval(()=>{
+ Object.values(peers).forEach(measurePing);
+},3000);
 
-   const videoSender=pc.getSenders().find(s=>
-    s.track&&s.track.kind==="video"
-   );
-   if(videoSender){
-    const p=videoSender.getParameters();
-    if(!p.encodings||!p.encodings.length)p.encodings=[{}];
+/* DOSYA PAYLAŞIMI */
 
-    const rtt=values.length?Math.max(...values):0;
-    let rate=1200000;
-    if(rtt>250)rate=300000;
-    else if(rtt>120)rate=600000;
-
-    p.encodings[0].maxBitrate=rate;
-    await videoSender.setParameters(p).catch(()=>{});
-   }
-  }catch(e){}
- }
-
- if(values.length){
-  const avg=values.reduce((a,b)=>a+b,0)/values.length;
-  $("ping").textContent=Math.round(avg)+" ms";
-  $("quality").textContent=
-   avg<100?"İyi bağlantı":avg<200?"Orta bağlantı – kalite ayarlandı":
-   "Yüksek gecikme – görüntü kalitesi düşürüldü";
- }else{
-  $("ping").textContent="-- ms";
-  $("quality").textContent="Henüz ölçülebilir P2P bağlantısı yok.";
- }
-}
-function startPingMonitor(){
- stopPingMonitor();
- updatePing();
- pingTimer=setInterval(updatePing,3000);
-}
-function stopPingMonitor(){
- if(pingTimer){clearInterval(pingTimer);pingTimer=null}
- $("ping").textContent="-- ms";
- $("quality").textContent="Bağlantı ölçümü bekleniyor.";
-}
-
-/* RADIO LINK R2 DOSYA AKTARIMI */
-const FILE_LIMIT=2.5*1024*1024*1024;
-const PART_SIZE=10*1024*1024;
-
-function currentRoom(){
- return $("room").value.trim().toUpperCase();
-}
-function fileApi(path){
- return serverURL()+"/api/files/"+path;
-}
-function fileMessage(t){
- $("fileProgress").textContent=t;
-}
+const MAX_FILE=2.5*1024*1024*1024;
+const CHUNK_SIZE=10*1024*1024;
 
 async function uploadFile(){
  const file=$("fileInput").files[0];
- const room=currentRoom();
+ if(!file)return alert("Dosya seç.");
+ if(file.size>MAX_FILE)return alert("Dosya 2.5 GiB sınırını aşıyor.");
+ if(!roomCode)return alert("Önce odaya bağlan.");
 
- if(!socket||socket.readyState!==WebSocket.OPEN){
-  alert("Önce odaya bağlan.");return;
- }
- if(!file){alert("Önce dosya seç.");return}
- if(file.size>FILE_LIMIT){
-  alert("Dosya 2,5 GB sınırını aşıyor.");return;
- }
+ const start=await fetch("/api/files/start",{
+  method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({
+   room:roomCode,
+   name:file.name,
+   size:file.size,
+   type:file.type
+  })
+ });
 
- let uploadInfo=null;
+ if(!start.ok)return alert("Yükleme başlatılamadı.");
+ const upload=await start.json();
+
  try{
-  fileMessage("Yükleme hazırlanıyor...");
-
-  let r=await fetch(fileApi("create"),{
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({
-    room,
-    name:file.name,
-    size:file.size,
-    type:file.type||"application/octet-stream"
-   })
-  });
-  uploadInfo=await r.json();
-  if(!r.ok||!uploadInfo.ok)throw Error(uploadInfo.error||"Yükleme başlatılamadı");
-
-  const count=Math.ceil(file.size/PART_SIZE);
-  const parts=[];
-
-  for(let i=0;i<count;i++){
-   const start=i*PART_SIZE;
-   const end=Math.min(start+PART_SIZE,file.size);
-   const chunk=file.slice(start,end);
-
-   r=await fetch(fileApi("part")+
-    "?room="+encodeURIComponent(room)+
-    "&key="+encodeURIComponent(uploadInfo.key)+
-    "&uploadId="+encodeURIComponent(uploadInfo.uploadId)+
-    "&partNumber="+(i+1),{
-     method:"PUT",
-     body:chunk
-    });
-
-   const result=await r.json();
-   if(!r.ok||!result.ok)
-    throw Error(result.error||"Parça "+(i+1)+" yüklenemedi");
-
-   parts.push(result.part);
-   const percent=Math.round(end/file.size*100);
-   fileMessage("Yükleniyor: %"+percent+" ("+(i+1)+"/"+count+")");
+  let part=1;
+  for(let offset=0;offset<file.size;offset+=CHUNK_SIZE){
+   const chunk=file.slice(offset,Math.min(offset+CHUNK_SIZE,file.size));
+   const response=await fetch(
+    `/api/files/part/${upload.id}/${part}?room=${encodeURIComponent(roomCode)}`,
+    {method:"PUT",body:chunk}
+   );
+   if(!response.ok)throw new Error("Parça "+part+" yüklenemedi");
+   part++;
   }
 
-  r=await fetch(fileApi("complete"),{
+  const done=await fetch(`/api/files/finish/${upload.id}`,{
    method:"POST",
    headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({
-    room,
-    key:uploadInfo.key,
-    uploadId:uploadInfo.uploadId,
-    parts
-   })
+   body:JSON.stringify({room:roomCode})
   });
-  const done=await r.json();
-  if(!r.ok||!done.ok)throw Error(done.error||"Dosya tamamlanamadı");
 
-  fileMessage("Dosya odaya yüklendi: "+file.name);
-  $("fileInput").value="";
-  await loadFiles();
+  if(!done.ok)throw new Error("Dosya tamamlanamadı");
+  alert("Dosya yüklendi.");
+  loadFiles();
  }catch(e){
-  fileMessage("Hata: "+e.message);
-  if(uploadInfo?.uploadId){
-   fetch(fileApi("abort")+
-    "?room="+encodeURIComponent(room)+
-    "&key="+encodeURIComponent(uploadInfo.key)+
-    "&uploadId="+encodeURIComponent(uploadInfo.uploadId),{
-     method:"DELETE"
-    }).catch(()=>{});
-  }
+  alert("Yükleme hatası: "+e.message);
  }
 }
 
 async function loadFiles(){
- const room=currentRoom();
- if(!room)return;
+ if(!roomCode)return;
+ const r=await fetch("/api/files?room="+encodeURIComponent(roomCode));
+ if(!r.ok)return;
+ const data=await r.json();
+ $("fileList").innerHTML="";
 
+ (data.files||[]).forEach(file=>{
+  const div=document.createElement("div");
+  div.className="file";
+
+  const title=document.createElement("b");
+  title.textContent=file.name+" ";
+
+  const size=document.createElement("small");
+  size.textContent=(file.size/1024/1024).toFixed(1)+" MB";
+
+  const cache=document.createElement("button");
+  cache.textContent="ÖNBELLEĞE AL";
+  cache.onclick=()=>cacheFile(file);
+
+  const download=document.createElement("button");
+  download.textContent="CİHAZA İNDİR";
+  download.onclick=()=>downloadFile(file);
+
+  div.append(title,size,document.createElement("br"),cache,download);
+  $("fileList").appendChild(div);
+ });
+}
+
+async function cacheFile(file){
  try{
-  const r=await fetch(fileApi("list")+"?room="+encodeURIComponent(room));
-  const data=await r.json();
-  if(!r.ok||!data.ok)throw Error(data.error||"Dosyalar alınamadı");
-
-  const list=$("fileList");
-  list.replaceChildren();
-
-  if(!data.files.length){
-   list.textContent="Bu odada henüz dosya yok.";
-   return;
-  }
-
-  data.files.forEach(f=>{
-   const box=document.createElement("div");
-   box.className="msg";
-
-   const title=document.createElement("strong");
-   title.textContent=f.name;
-
-   const info=document.createElement("div");
-   info.className="small";
-   info.textContent=(f.size/1024/1024).toFixed(1)+" MB";
-
-   const cacheBtn=document.createElement("button");
-   cacheBtn.className="secondary";
-   cacheBtn.textContent="ÖNBELLEĞE AL";
-   cacheBtn.onclick=()=>cacheFile(f);
-
-   const downloadBtn=document.createElement("button");
-   downloadBtn.textContent="CİHAZA İNDİR";
-   downloadBtn.onclick=()=>downloadFile(f);
-
-   box.append(title,info,cacheBtn,downloadBtn);
-   list.appendChild(box);
-  });
- }catch(e){
-  fileMessage("Dosya listesi hatası: "+e.message);
- }
-}
-
-function fileDownloadURL(f){
- return fileApi("download")+
-  "?room="+encodeURIComponent(currentRoom())+
-  "&key="+encodeURIComponent(f.key);
-}
-
-function downloadFile(f){
- const a=document.createElement("a");
- a.href=fileDownloadURL(f);
- a.download=f.name;
- a.rel="noopener";
- document.body.appendChild(a);
- a.click();
- a.remove();
-}
-
-async function cacheFile(f){
- try{
-  if(!("caches" in window))
-   throw Error("Bu tarayıcı önbellek API'sini desteklemiyor.");
-
-  fileMessage("Dosya tarayıcı önbelleğine alınıyor...");
-  const url=fileDownloadURL(f);
+  const url=`/api/files/download/${file.id}?room=${encodeURIComponent(roomCode)}`;
   const response=await fetch(url);
-
-  if(!response.ok)throw Error("Dosya indirilemedi.");
-
-  const cache=await caches.open("radio-link-"+currentRoom());
-  await cache.put(new Request(url),response);
-
-  fileMessage(f.name+" tarayıcı önbelleğine alındı.");
- }catch(e){
-  fileMessage("Önbellek hatası: "+e.message+
-   " Depolama alanı yetersiz olabilir.");
- }
+  if(!response.ok)throw new Error("Dosya alınamadı");
+  const cache=await caches.open("radio-link-files");
+  await cache.put(url,response);
+  alert("Dosya tarayıcı önbelleğine alındı.");
+ }catch(e){alert("Önbelleğe alma başarısız: "+e.message)}
 }
 
-window.addEventListener("beforeunload",()=>{
- if(socket)socket.close();
- if(localStream)localStream.getTracks().forEach(t=>t.stop());
- if(cameraStream)cameraStream.getTracks().forEach(t=>t.stop());
- if(screenStream)screenStream.getTracks().forEach(t=>t.stop());
-});
+function downloadFile(file){
+ const url=`/api/files/download/${file.id}?room=${encodeURIComponent(roomCode)}`;
+ const a=document.createElement("a");
+ a.href=url;
+ a.download=file.name;
+ a.click();
+}
 </script>
 </body>
 </html>
