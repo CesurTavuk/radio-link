@@ -1,15 +1,14 @@
+
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "radio-link",
   "main": "worker.js",
   "compatibility_date": "2026-11-13",
-
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-
   "durable_objects": {
     "bindings": [
       {
@@ -18,18 +17,10 @@
       }
     ]
   },
-
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["RadioRoom"]
-    }
-  ],
-
-  "r2_buckets": [
-    {
-      "binding": "FILES",
-      "bucket_name": "radio-link-files"
     }
   ]
 }
