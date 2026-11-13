@@ -1,0 +1,26 @@
+
+{
+  "$schema": "https://schema.cloudflare.com/wrangler/config-schema.json",
+  "name": "radio-link-server",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-13",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "RadioRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RadioRoom"]
+    }
+  ]
+}
