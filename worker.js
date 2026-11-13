@@ -1,23 +1,24 @@
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Upgrade"
-};
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...cors
+      "Access-Control-Allow-Origin": "*"
     }
   });
 }
 
 function send(ws, data) {
   try {
-    ws.send(JSON.stringify(data));
+    if (ws.readyState === 1) ws.send(JSON.stringify(data));
   } catch {}
+}
+
+function broadcast(sockets, data, except = null) {
+  for (const ws of sockets) {
+    if (ws !== except) send(ws, data);
+  }
 }
 
 export class RadioRoom {
@@ -31,21 +32,21 @@ export class RadioRoom {
       return new Response("RADIO LINK room ready");
     }
 
+    const url = new URL(request.url);
+    const name = (url.searchParams.get("name") || "Misafir").slice(0, 24);
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
 
-    const peers = this.ctx.getWebSockets().map(ws => {
-      return ws.deserializeAttachment() || {};
-    });
+    const peers = this.ctx.getWebSockets().map(ws =>
+      ws.deserializeAttachment() || {}
+    );
 
     const id = crypto.randomUUID();
 
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({
-      id,
-      name: "Misafir"
-    });
+    server.serializeAttachment({ id, name });
 
     send(server, {
       type: "welcome",
@@ -53,14 +54,11 @@ export class RadioRoom {
       peers
     });
 
-    for (const ws of this.ctx.getWebSockets()) {
-      if (ws !== server) {
-        send(ws, {
-          type: "peer-joined",
-          id
-        });
-      }
-    }
+    broadcast(this.ctx.getWebSockets(), {
+      type: "peer-joined",
+      id,
+      name
+    }, server);
 
     return new Response(null, {
       status: 101,
@@ -69,67 +67,54 @@ export class RadioRoom {
   }
 
   webSocketMessage(ws, message) {
+    let data;
+
     try {
-      const data = JSON.parse(String(message));
-      const sender = ws.deserializeAttachment() || {};
+      data = JSON.parse(String(message));
+    } catch {
+      return;
+    }
 
-      if (data.type === "chat") {
-        const name = String(data.name || "Misafir").slice(0, 24);
-        const text = String(data.text || "").slice(0, 1000);
+    const sender = ws.deserializeAttachment() || {};
 
-        if (!text.trim()) return;
+    if (data.type === "chat") {
+      const text = String(data.text || "").slice(0, 1000);
+      if (!text.trim()) return;
 
-        ws.serializeAttachment({
-          ...sender,
-          name
+      broadcast(this.ctx.getWebSockets(), {
+        type: "chat",
+        id: sender.id,
+        name: sender.name,
+        text,
+        time: Date.now()
+      });
+    }
+
+    if (data.type === "signal") {
+      const target = String(data.target || "");
+      const peer = this.ctx.getWebSockets().find(s => {
+        const info = s.deserializeAttachment() || {};
+        return info.id === target;
+      });
+
+      if (peer) {
+        send(peer, {
+          type: "signal",
+          from: sender.id,
+          signal: data.signal
         });
-
-        const packet = {
-          type: "chat",
-          id: sender.id,
-          name,
-          text,
-          time: Date.now()
-        };
-
-        for (const socket of this.ctx.getWebSockets()) {
-          send(socket, packet);
-        }
       }
-
-      if (data.type === "signal") {
-        const target = String(data.target || "");
-        const signal = data.signal;
-
-        if (!target || !signal || typeof signal !== "object") return;
-
-        for (const socket of this.ctx.getWebSockets()) {
-          if (socket === ws) continue;
-
-          const peer = socket.deserializeAttachment() || {};
-
-          if (peer.id === target) {
-            send(socket, {
-              type: "signal",
-              from: sender.id,
-              signal
-            });
-            break;
-          }
-        }
-      }
-    } catch {}
+    }
   }
 
   webSocketClose(ws) {
-    const attachment = ws.deserializeAttachment() || {};
+    const info = ws.deserializeAttachment() || {};
 
-    for (const socket of this.ctx.getWebSockets()) {
-      send(socket, {
-        type: "peer-left",
-        id: attachment.id
-      });
-    }
+    broadcast(this.ctx.getWebSockets(), {
+      type: "peer-left",
+      id: info.id,
+      name: info.name
+    });
   }
 
   webSocketError(ws) {
@@ -143,8 +128,11 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
-        status: 204,
-        headers: cors
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Upgrade"
+        }
       });
     }
 
@@ -152,7 +140,7 @@ export default {
       return json({
         ok: true,
         app: "RADIO LINK",
-        version: "2.0"
+        version: "2.1"
       });
     }
 
@@ -162,28 +150,22 @@ export default {
         .slice(0, 6)
         .toUpperCase();
 
-      return json({
-        ok: true,
-        code
-      });
+      return json({ ok: true, code });
     }
 
-    const match = url.pathname.match(
-      /^\/api\/room\/([A-Z0-9]{4,10})$/i
-    );
+    const match = url.pathname.match(/^\/api\/room\/([A-Z0-9]{4,10})$/i);
 
     if (match) {
-      const id = env.ROOMS.idFromName(
-        match[1].toUpperCase()
-      );
-
-      return env.ROOMS.get(id).fetch(request);
+      const code = match[1].toUpperCase();
+      const id = env.ROOMS.idFromName(code);
+      const room = env.ROOMS.get(id);
+      return room.fetch(request);
     }
 
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
 
-    return new Response("RADIO LINK çalışıyor.");
+    return new Response("RADIO LINK");
   }
 };
