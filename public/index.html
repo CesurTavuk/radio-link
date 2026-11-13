@@ -1,26 +1,656 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<title>RADIO LINK 2.0</title>
 
-{
-  "$schema": "https://schema.cloudflare.com/wrangler/config-schema.json",
-  "name": "radio-link-server",
-  "main": "worker.js",
-  "compatibility_date": "2026-11-13",
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "ROOMS",
-        "class_name": "RadioRoom"
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["RadioRoom"]
-    }
-  ]
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#07111f;color:#edf5ff;
+ font-family:Arial,sans-serif;min-height:100vh
 }
+button,input{font:inherit}
+button{cursor:pointer}
+.container{max-width:760px;margin:auto;padding:20px 14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.logo{font-size:23px;font-weight:900;letter-spacing:2px;color:#40ddeb}
+.status{font-size:12px;color:#4ade80}
+.card{
+ background:#101e32;border:1px solid #293d57;
+ border-radius:18px;padding:19px;margin-bottom:15px
+}
+h2{margin:0 0 8px}
+p{color:#9aacc2;font-size:13px;line-height:1.5}
+label{display:block;font-size:12px;margin:14px 0 7px}
+input{
+ width:100%;padding:14px;border-radius:10px;
+ background:#091525;border:1px solid #30445e;
+ color:white;outline:none
+}
+input:focus{border-color:#40ddeb}
+button{
+ border:0;border-radius:10px;padding:13px;
+ font-weight:bold
+}
+.primary{background:#40ddeb;color:#07111f}
+.secondary{background:#203650;color:white;border:1px solid #3b526d}
+.danger{background:#7f263b;color:white}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+#joinArea{display:none;margin-top:12px}
+#roomArea{display:none}
+.roomtop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code{font-size:26px;letter-spacing:4px;color:#40ddeb;font-weight:bold}
+.roomActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.roomActions button{font-size:12px}
+.messages{
+ height:260px;overflow:auto;background:#081525;
+ border:1px solid #293d57;border-radius:12px;
+ padding:12px;margin:15px 0
+}
+.message{background:#192e47;padding:10px;border-radius:10px;margin-bottom:9px;overflow-wrap:anywhere}
+.message.mine{background:#104052}
+.msgname{color:#40ddeb;font-size:12px;font-weight:bold;margin-bottom:5px}
+.msgtext{font-size:14px;white-space:pre-wrap}
+.send{display:flex;gap:8px}
+.send input{flex:1;min-width:0}
+.send button{min-width:85px}
+.radioBox{text-align:center;padding:20px 5px}
+.ptt{
+ width:155px;height:155px;border-radius:50%;
+ background:linear-gradient(145deg,#35d9e8,#168ba8);
+ color:#06131e;font-size:18px;font-weight:900;
+ border:7px solid #24536a;
+ box-shadow:0 0 0 8px #1a3c50,0 12px 35px #0008;
+ touch-action:none;user-select:none;
+}
+.ptt.talking{
+ background:linear-gradient(145deg,#ff8798,#e33d63);
+ border-color:#873047;
+ box-shadow:0 0 0 8px #54283b,0 0 35px #ed426877;
+ transform:scale(.97)
+}
+.micStatus{font-size:13px;color:#a9bed5;margin:18px 0 8px}
+.micStatus.active{color:#4ade80}
+#roomInfo,#setupInfo{font-size:12px;color:#40ddeb;margin-top:10px;min-height:16px}
+.small{font-size:11px;color:#8298b2;line-height:1.5}
+footer{text-align:center;color:#61758e;font-size:11px;padding:12px}
+audio{display:none}
+@media(max-width:480px){
+ .container{padding:15px 10px}
+ .card{padding:15px}
+ .buttons{grid-template-columns:1fr}
+ .messages{height:220px}
+ .ptt{width:145px;height:145px}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+ <div class="logo">📻 RADIO LINK</div>
+ <div class="status" id="serverStatus">● Kontrol ediliyor</div>
+</header>
+
+<section class="card" id="setupArea">
+ <h2>Bağlantı merkezi</h2>
+ <p>Yeni bir telsiz odası oluştur veya oda koduyla katıl.</p>
+
+ <label>Kullanıcı adı</label>
+ <input id="nickname" maxlength="24" placeholder="Kullanıcı adın">
+
+ <div class="buttons">
+  <button class="primary" id="createBtn">＋ ODA OLUŞTUR</button>
+  <button class="secondary" id="showJoinBtn">ODA KODUYLA KATIL</button>
+ </div>
+
+ <div id="joinArea">
+  <label>Oda kodu</label>
+  <input id="roomInput" maxlength="10" placeholder="ODA KODU">
+  <button class="primary" id="joinBtn" style="width:100%;margin-top:10px">BAĞLAN</button>
+ </div>
+
+ <div id="setupInfo"></div>
+ <p class="small">Sesli konuşma için mikrofon izni gerekir. HTTPS bağlantısı kullan.</p>
+</section>
+
+<section class="card" id="roomArea">
+ <div class="roomtop">
+  <div>
+   <p>AKTİF TELSİZ ODASI</p>
+   <div class="code" id="roomCode">------</div>
+  </div>
+  <button class="secondary" id="copyBtn">KOPYALA</button>
+ </div>
+
+ <div class="roomActions">
+  <button class="secondary" id="audioBtn">🔊 SESİ AÇ</button>
+  <button class="secondary" id="micBtn">🎙 MİKROFONU HAZIRLA</button>
+  <button class="danger" id="leaveBtn">ODADAN ÇIK</button>
+ </div>
+
+ <div class="radioBox">
+  <button class="ptt" id="pttBtn" disabled>
+   BASILI TUT<br>KONUŞ
+  </button>
+  <div class="micStatus" id="micStatus">Önce mikrofonu hazırla.</div>
+  <p class="small">Konuşmak için düğmeye basılı tut. Bıraktığında mikrofonun susar.</p>
+ </div>
+
+ <div class="messages" id="messages">
+  <p>Mesajlar burada görünecek.</p>
+ </div>
+
+ <form class="send" id="sendForm">
+  <input id="messageInput" maxlength="1000" placeholder="Mesaj yaz...">
+  <button class="primary" type="submit">GÖNDER</button>
+ </form>
+
+ <div id="roomInfo"></div>
+</section>
+
+<footer>RADIO LINK 2.0 • İnternet tabanlı telsiz</footer>
+</div>
+
+<script>
+"use strict";
+
+const $=id=>document.getElementById(id);
+const API=location.origin;
+
+let socket=null;
+let roomCode="";
+let username="";
+let myId="";
+let localStream=null;
+let talking=false;
+let pcs=new Map();
+let audioElements=new Map();
+let held=false;
+
+function info(text){
+ $("roomInfo").textContent=text||"";
+}
+
+function setServer(text,ok){
+ $("serverStatus").textContent=(ok?"● ":"● ")+text;
+ $("serverStatus").style.color=ok?"#4ade80":"#fb7185";
+}
+
+async function checkServer(){
+ try{
+  const r=await fetch(API+"/api/health");
+  const d=await r.json();
+  if(!r.ok||!d.ok)throw Error();
+  setServer("Sunucu çevrimiçi",true);
+ }catch{
+  setServer("Sunucu bağlantısı yok",false);
+ }
+}
+
+function addMessage(name,text,id){
+ const box=$("messages");
+ const empty=box.querySelector("p");
+ if(empty)empty.remove();
+
+ const item=document.createElement("div");
+ item.className="message"+(id===myId?" mine":"");
+
+ const n=document.createElement("div");
+ n.className="msgname";
+ n.textContent=name||"Misafir";
+
+ const t=document.createElement("div");
+ t.className="msgtext";
+ t.textContent=text||"";
+
+ item.append(n,t);
+ box.appendChild(item);
+ box.scrollTop=box.scrollHeight;
+}
+
+function sendSignal(target,signal){
+ if(!socket||socket.readyState!==WebSocket.OPEN)return;
+ socket.send(JSON.stringify({
+  type:"signal",
+  target,
+  signal
+ }));
+}
+
+function createPeer(peerId){
+ if(pcs.has(peerId))return pcs.get(peerId);
+
+ const pc=new RTCPeerConnection({
+  iceServers:[
+   {urls:"stun:stun.l.google.com:19302"},
+   {urls:"stun:stun1.l.google.com:19302"}
+  ]
+ });
+
+ const state={
+  pc,
+  makingOffer:false,
+  ignoreOffer:false,
+  polite:myId>peerId
+ };
+
+ pcs.set(peerId,state);
+
+ const transceiver=pc.addTransceiver("audio",{
+  direction:localStream?"sendrecv":"recvonly"
+ });
+
+ if(localStream){
+  transceiver.sender.replaceTrack(localStream.getAudioTracks()[0]);
+ }
+
+ pc.onicecandidate=e=>{
+  if(e.candidate){
+   sendSignal(peerId,{
+    candidate:e.candidate
+   });
+  }
+ };
+
+ pc.ontrack=e=>{
+  let audio=audioElements.get(peerId);
+
+  if(!audio){
+   audio=document.createElement("audio");
+   audio.autoplay=true;
+   audio.playsInline=true;
+   document.body.appendChild(audio);
+   audioElements.set(peerId,audio);
+  }
+
+  audio.srcObject=e.streams[0];
+  audio.play().catch(()=>{
+   info("Gelen sesi açmak için SESİ AÇ düğmesine bas.");
+  });
+ };
+
+ pc.onnegotiationneeded=async()=>{
+  try{
+   state.makingOffer=true;
+   await pc.setLocalDescription();
+   sendSignal(peerId,{
+    description:pc.localDescription
+   });
+  }catch(e){
+   console.error(e);
+  }finally{
+   state.makingOffer=false;
+  }
+ };
+
+ pc.onconnectionstatechange=()=>{
+  if(pc.connectionState==="failed"){
+   info("Ses bağlantısı kurulamadı. STUN/TURN bağlantısını kontrol et.");
+  }
+ };
+
+ return state;
+}
+
+async function handleSignal(from,signal){
+ const state=createPeer(from);
+ const pc=state.pc;
+
+ try{
+  if(signal.description){
+   const description=signal.description;
+
+   const readyForOffer=
+    !state.makingOffer&&
+    (pc.signalingState==="stable"||
+     pc.signalingState==="have-local-offer");
+
+   const collision=
+    description.type==="offer"&&!readyForOffer;
+
+   state.ignoreOffer=!state.polite&&collision;
+
+   if(state.ignoreOffer)return;
+
+   if(collision&&state.polite){
+    await pc.setLocalDescription({type:"rollback"});
+   }
+
+   await pc.setRemoteDescription(description);
+
+   if(description.type==="offer"){
+    await pc.setLocalDescription();
+    sendSignal(from,{
+     description:pc.localDescription
+    });
+   }
+  }
+
+  if(signal.candidate){
+   try{
+    await pc.addIceCandidate(signal.candidate);
+   }catch(e){
+    if(!state.ignoreOffer)throw e;
+   }
+  }
+ }catch(e){
+  console.error("Sinyal hatası:",e);
+ }
+}
+
+async function prepareMic(){
+ if(localStream)return true;
+
+ if(!navigator.mediaDevices||
+    !navigator.mediaDevices.getUserMedia){
+  info("Tarayıcı mikrofon erişimini desteklemiyor. HTTPS kullan.");
+  return false;
+ }
+
+ try{
+  $("micStatus").textContent="Mikrofon izni bekleniyor...";
+
+  localStream=await navigator.mediaDevices.getUserMedia({
+   audio:{
+    echoCancellation:true,
+    noiseSuppression:true,
+    autoGainControl:true
+   },
+   video:false
+  });
+
+  localStream.getAudioTracks().forEach(t=>t.enabled=false);
+
+  for(const [peerId,state] of pcs){
+   const transceiver=state.pc.getTransceivers()
+    .find(t=>t.receiver.track.kind==="audio");
+
+   if(transceiver){
+    await transceiver.sender.replaceTrack(
+     localStream.getAudioTracks()[0]
+    );
+    transceiver.direction="sendrecv";
+   }
+  }
+
+  $("pttBtn").disabled=false;
+  $("micStatus").textContent="Mikrofon hazır. Basılı tutarak konuş.";
+  $("micStatus").classList.add("active");
+  info("Mikrofon hazır.");
+  return true;
+
+ }catch(e){
+  $("micStatus").textContent="Mikrofon izni alınamadı.";
+  info("Mikrofon hatası: "+e.message);
+  return false;
+ }
+}
+
+async function startTalking(){
+ if(held)return;
+ held=true;
+
+ const ready=await prepareMic();
+
+ if(!ready||!held)return;
+
+ localStream.getAudioTracks().forEach(t=>t.enabled=true);
+ talking=true;
+ $("pttBtn").classList.add("talking");
+ $("pttBtn").innerHTML="●<br>KONUŞUYORSUN";
+ $("micStatus").textContent="MİKROFON AÇIK";
+}
+
+function stopTalking(){
+ held=false;
+ talking=false;
+
+ if(localStream){
+  localStream.getAudioTracks().forEach(t=>t.enabled=false);
+ }
+
+ $("pttBtn").classList.remove("talking");
+ $("pttBtn").innerHTML="BASILI TUT<br>KONUŞ";
+
+ if(localStream){
+  $("micStatus").textContent="Mikrofon hazır. Konuşmak için bas.";
+ }
+}
+
+function connect(code){
+ username=$("nickname").value.trim();
+
+ if(!username){
+  $("setupInfo").textContent="Önce kullanıcı adı gir.";
+  $("nickname").focus();
+  return;
+ }
+
+ if(!/^[A-Z0-9]{4,10}$/.test(code)){
+  $("setupInfo").textContent="Oda kodu geçersiz.";
+  return;
+ }
+
+ if(socket)disconnect();
+
+ roomCode=code;
+ $("setupInfo").textContent="Odaya bağlanılıyor...";
+
+ const protocol=location.protocol==="https:"?"wss:":"ws:";
+
+ socket=new WebSocket(
+  protocol+"//"+location.host+"/api/room/"+code
+ );
+
+ socket.onopen=()=>{
+  $("setupArea").style.display="none";
+  $("roomArea").style.display="block";
+  $("roomCode").textContent=code;
+  $("messages").innerHTML="";
+  info("Sunucuya bağlandın. Mikrofonu hazırlayabilirsin.");
+ };
+
+ socket.onmessage=async event=>{
+  try{
+   const data=JSON.parse(event.data);
+
+   if(data.type==="welcome"){
+    myId=data.id;
+
+    for(const peer of data.peers||[]){
+     if(peer.id)createPeer(peer.id);
+    }
+   }
+
+   if(data.type==="peer-joined"){
+    createPeer(data.id);
+    info("Yeni kullanıcı odaya katıldı.");
+   }
+
+   if(data.type==="peer-left"){
+    removePeer(data.id);
+   }
+
+   if(data.type==="chat"){
+    addMessage(data.name,data.text,data.id);
+   }
+
+   if(data.type==="signal"){
+    await handleSignal(data.from,data.signal);
+   }
+
+   if(data.type==="system"){
+    info(data.text);
+   }
+  }catch(e){
+   console.error(e);
+  }
+ };
+
+ socket.onerror=()=>{
+  info("Sunucu bağlantı hatası.");
+ };
+
+ socket.onclose=()=>{
+  if($("roomArea").style.display==="block"){
+   info("Sunucu bağlantısı kapandı.");
+  }
+ };
+}
+
+function removePeer(id){
+ const state=pcs.get(id);
+
+ if(state){
+  state.pc.close();
+  pcs.delete(id);
+ }
+
+ const audio=audioElements.get(id);
+ if(audio){
+  audio.srcObject=null;
+  audio.remove();
+  audioElements.delete(id);
+ }
+}
+
+function disconnect(){
+ stopTalking();
+
+ if(socket){
+  socket.onclose=null;
+  socket.close();
+  socket=null;
+ }
+
+ for(const id of [...pcs.keys()]){
+  removePeer(id);
+ }
+
+ if(localStream){
+  localStream.getTracks().forEach(t=>t.stop());
+  localStream=null;
+ }
+
+ myId="";
+ roomCode="";
+
+ $("pttBtn").disabled=true;
+ $("micStatus").textContent="Önce mikrofonu hazırla.";
+ $("micStatus").classList.remove("active");
+ $("roomArea").style.display="none";
+ $("setupArea").style.display="block";
+ $("setupInfo").textContent="Odadan ayrıldın.";
+}
+
+$("createBtn").onclick=async()=>{
+ username=$("nickname").value.trim();
+
+ if(!username){
+  $("setupInfo").textContent="Kullanıcı adı gir.";
+  return;
+ }
+
+ $("createBtn").disabled=true;
+ $("setupInfo").textContent="Oda oluşturuluyor...";
+
+ try{
+  const r=await fetch(API+"/api/create",{method:"POST"});
+  const d=await r.json();
+
+  if(!r.ok||!d.ok||!d.code)throw Error("Oda oluşturulamadı.");
+
+  connect(d.code);
+ }catch(e){
+  $("setupInfo").textContent=e.message;
+ }finally{
+  $("createBtn").disabled=false;
+ }
+};
+
+$("showJoinBtn").onclick=()=>{
+ const area=$("joinArea");
+ area.style.display=area.style.display==="block"?"none":"block";
+};
+
+$("joinBtn").onclick=()=>{
+ const code=$("roomInput").value.trim().toUpperCase();
+ connect(code);
+};
+
+$("roomInput").oninput=e=>{
+ e.target.value=e.target.value.toUpperCase()
+  .replace(/[^A-Z0-9]/g,"");
+};
+
+$("micBtn").onclick=prepareMic;
+
+$("audioBtn").onclick=async()=>{
+ for(const audio of audioElements.values()){
+  try{await audio.play()}catch{}
+ }
+ info("Ses oynatma etkinleştirildi.");
+};
+
+$("pttBtn").addEventListener("pointerdown",e=>{
+ e.preventDefault();
+ $("pttBtn").setPointerCapture(e.pointerId);
+ startTalking();
+});
+
+$("pttBtn").addEventListener("pointerup",stopTalking);
+$("pttBtn").addEventListener("pointercancel",stopTalking);
+$("pttBtn").addEventListener("lostpointercapture",stopTalking);
+
+$("pttBtn").addEventListener("contextmenu",e=>e.preventDefault());
+
+$("sendForm").onsubmit=e=>{
+ e.preventDefault();
+
+ const text=$("messageInput").value.trim();
+
+ if(!text)return;
+
+ if(!socket||socket.readyState!==WebSocket.OPEN){
+  info("Mesaj gönderilemedi. Odaya bağlı değilsin.");
+  return;
+ }
+
+ socket.send(JSON.stringify({
+  type:"chat",
+  name:username,
+  text
+ }));
+
+ $("messageInput").value="";
+};
+
+$("copyBtn").onclick=async()=>{
+ try{
+  await navigator.clipboard.writeText(roomCode);
+  info("Oda kodu kopyalandı.");
+ }catch{
+  info("Oda kodun: "+roomCode);
+ }
+};
+
+$("leaveBtn").onclick=disconnect;
+
+window.addEventListener("blur",()=>{
+ if(talking)stopTalking();
+});
+
+window.addEventListener("beforeunload",()=>{
+ if(socket)socket.close();
+});
+
+checkServer();
+setInterval(checkServer,60000);
+</script>
+</body>
+</html>
